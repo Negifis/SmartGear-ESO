@@ -1,0 +1,95 @@
+{
+    "_comment": "Manual tier/role overrides. These take priority over auto-parsed data.",
+    "_usage": "Add set names as keys with tier, roles, notes, source, is_monster, is_mythic, is_pvp fields.",
+
+    "Pillar of Nirn": {
+        "tier": "S",
+        "roles": ["StamDD", "MagDD"],
+        "notes": "Top proc DPS set, AoE damage"
+    },
+    "Bahsei's Mania": {
+        "tier": "S",
+        "roles": ["MagDD", "StamDD"],
+        "notes": "Low-resource damage amp"
+    },
+    "Ansuul's Torment": {
+        "tier": "S",
+        "roles": ["MagDD", "StamDD"],
+        "notes": "Top trial DPS set"
+    },
+    "Coral Riptide": {
+        "tier": "S",
+        "roles": ["StamDD", "MagDD"],
+        "notes": "Resource-drain DPS, high ceiling"
+    },
+    "Whorl of the Depths": {
+        "tier": "S",
+        "roles": ["MagDD", "StamDD"],
+        "notes": "Trial DPS set, AoE proc"
+    },
+    "Perfected Crushing Wall": {
+        "tier": "S",
+        "roles": ["MagDD", "StamDD"],
+        "notes": "Back bar Destro staff, must have"
+    },
+    "Olorime": {
+        "tier": "S",
+        "roles": ["Healer"],
+        "notes": "Major Courage ground AoE"
+    },
+    "Roaring Opportunist": {
+        "tier": "S",
+        "roles": ["Healer"],
+        "notes": "Minor Slayer for group"
+    },
+    "Pillager's Profit": {
+        "tier": "S",
+        "roles": ["Healer"],
+        "notes": "Group burst heal on revive"
+    },
+    "Saxhleel Champion": {
+        "tier": "S",
+        "roles": ["Tank", "Healer"],
+        "notes": "Ultimate generation for group"
+    },
+    "Turning Tide": {
+        "tier": "S",
+        "roles": ["Tank"],
+        "notes": "Group DPS support, off-balance"
+    },
+    "Claw of Yolnahkriin": {
+        "tier": "S",
+        "roles": ["Tank"],
+        "notes": "Minor Courage uptime for group"
+    },
+    "Lord Warden": {
+        "tier": "S",
+        "roles": ["Tank"],
+        "is_monster": true,
+        "notes": "Group resistances"
+    },
+    "Symphony of Blades": {
+        "tier": "S",
+        "roles": ["Healer"],
+        "is_monster": true,
+        "notes": "Resource return for lowest member"
+    },
+    "Slimecraw": {
+        "tier": "S",
+        "roles": ["MagDD", "StamDD"],
+        "is_monster": true,
+        "notes": "Minor Berserk, 1pc crit"
+    },
+    "Harpooner's Wading Kilt": {
+        "tier": "S",
+        "roles": ["MagDD", "StamDD"],
+        "is_mythic": true,
+        "notes": "Stacking crit damage, BiS for parsing"
+    },
+    "Oakensoul Ring": {
+        "tier": "A",
+        "roles": ["MagDD", "StamDD", "Tank", "Healer"],
+        "is_mythic": true,
+        "notes": "One-bar build enabler, many buffs"
+    }
+}

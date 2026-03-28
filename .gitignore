@@ -1,0 +1,24 @@
+# Cache
+updater/cache/
+updater/__pycache__/
+updater/sources/__pycache__/
+
+# Release artifacts
+release/
+
+# Claude internal
+.claude/
+
+# Python
+*.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.spec
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
