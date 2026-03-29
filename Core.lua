@@ -96,6 +96,81 @@ local function IsSetForAnyRole(metaInfo)
 end
 
 ----------------------------------------------------------------------
+-- Dual Wield weapon type bonuses (Twin Blade and Blunt passive)
+-- Each weapon type gives a different bonus, regardless of hand
+----------------------------------------------------------------------
+SmartGear.DW_WEAPON_BONUSES = {
+    [WEAPONTYPE_DAGGER]           = { stat = "crit",   desc_en = "Crit Chance",       desc_ru = "Шанс крита" },
+    [WEAPONTYPE_ONE_HANDED_AXE]   = { stat = "critdmg", desc_en = "Crit Damage",      desc_ru = "Крит. урон" },
+    [WEAPONTYPE_ONE_HANDED_SWORD] = { stat = "damage",  desc_en = "Weapon/Spell Dmg", desc_ru = "Сила урона" },
+    [WEAPONTYPE_ONE_HANDED_HAMMER]= { stat = "pen",    desc_en = "Penetration",       desc_ru = "Пробивание" },
+}
+
+----------------------------------------------------------------------
+-- Weapon slot awareness for trait optimization
+-- Main hand gets 100% damage scaling, off-hand gets ~18%
+-- So damage traits (Nirnhoned) should always be on main hand
+----------------------------------------------------------------------
+local MAIN_HAND_TRAITS = {
+    [ITEM_TRAIT_TYPE_WEAPON_NIRNHONED] = true,  -- +200 dmg, only useful at 100% scaling
+}
+local OFF_HAND_TRAITS = {
+    [ITEM_TRAIT_TYPE_WEAPON_CHARGED]   = true,  -- enchant proc, doesn't depend on scaling
+    [ITEM_TRAIT_TYPE_WEAPON_INFUSED]   = true,  -- enchant power, works on either hand
+    [ITEM_TRAIT_TYPE_WEAPON_PRECISE]   = true,  -- crit, flat bonus
+}
+
+----------------------------------------------------------------------
+-- Analyze weapon placement: is this weapon optimal for the target slot?
+-- Returns: slotAdvice string, bonus/penalty score
+----------------------------------------------------------------------
+function SmartGear.AnalyzeWeaponPlacement(itemLink, targetSlot)
+    if not itemLink or itemLink == "" then return nil, 0 end
+
+    local weaponType = GetItemLinkWeaponType(itemLink)
+    local traitType = GetItemLinkTraitType(itemLink)
+    local equipType = GetItemLinkEquipType(itemLink)
+
+    -- Only relevant for one-hand weapons in dual wield context
+    if equipType ~= EQUIP_TYPE_ONE_HAND then return nil, 0 end
+
+    local isMainHand = (targetSlot == EQUIP_SLOT_MAIN_HAND or targetSlot == EQUIP_SLOT_BACKUP_MAIN)
+    local isOffHand = (targetSlot == EQUIP_SLOT_OFF_HAND or targetSlot == EQUIP_SLOT_BACKUP_OFF)
+
+    local advice = nil
+    local scoreBonus = 0
+
+    -- Trait placement check
+    if traitType then
+        if isMainHand and MAIN_HAND_TRAITS[traitType] then
+            -- Nirnhoned in main hand = correct
+            scoreBonus = scoreBonus + 3
+            advice = "trait_correct_main"
+        elseif isOffHand and MAIN_HAND_TRAITS[traitType] then
+            -- Nirnhoned in off-hand = wasted (only 18% scaling)
+            scoreBonus = scoreBonus - 5
+            advice = "trait_wrong_offhand"
+        elseif isOffHand and OFF_HAND_TRAITS[traitType] then
+            -- Charged/Infused/Precise in off-hand = correct
+            scoreBonus = scoreBonus + 2
+            advice = "trait_correct_off"
+        elseif isMainHand and OFF_HAND_TRAITS[traitType] then
+            -- Charged in main hand = suboptimal but not terrible
+            scoreBonus = scoreBonus + 0
+        end
+    end
+
+    -- Twin Blade and Blunt awareness
+    local dwBonus = SmartGear.DW_WEAPON_BONUSES[weaponType]
+    if dwBonus then
+        -- Add info about what this weapon type provides
+        advice = advice or "dw_bonus"
+    end
+
+    return advice, scoreBonus, dwBonus
+end
+
+----------------------------------------------------------------------
 -- Evaluate armor trait quality for role
 ----------------------------------------------------------------------
 local function EvaluateArmorTrait(traitType, role, pvpMode)
@@ -742,6 +817,37 @@ function SmartGear._BuildComparison(newEval, wornSlot)
                 detail = "lower_level",
                 value = tostring(newEval.itemLevel - equippedEval.itemLevel),
             })
+        end
+    end
+
+    -- Weapon placement analysis (trait in correct hand + DW bonuses)
+    if newEval.itemLink then
+        local advice, placementBonus, dwBonus = SmartGear.AnalyzeWeaponPlacement(newEval.itemLink, wornSlot)
+        if advice then
+            comp.weaponAdvice = advice
+            comp.weaponDwBonus = dwBonus
+            comp.scoreDiff = comp.scoreDiff + placementBonus
+
+            if advice == "trait_wrong_offhand" then
+                table.insert(comp.changes, {
+                    aspect = "weapon", direction = "down",
+                    detail = "trait_wrong_hand",
+                })
+            elseif advice == "trait_correct_main" then
+                table.insert(comp.changes, {
+                    aspect = "weapon", direction = "up",
+                    detail = "trait_correct_hand",
+                })
+            end
+
+            -- Add DW weapon type info
+            if dwBonus then
+                table.insert(comp.changes, {
+                    aspect = "weapon_type", direction = "info",
+                    detail = "dw_bonus",
+                    value = dwBonus.desc_en,
+                })
+            end
         end
     end
 

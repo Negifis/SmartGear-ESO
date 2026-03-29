@@ -364,6 +364,18 @@ local function BuildComparisonLines(comp)
             elseif change.detail == "lower_level" then
                 changeText = arrow .. (lang == "ru" and "Ниже уровень" or "Lower level")
                     .. " (" .. (change.value or "") .. ")" .. COLOR_RESET
+            elseif change.detail == "trait_wrong_hand" then
+                changeText = COLOR_RED .. "  ! " .. (lang == "ru"
+                    and "Nirnhoned в оффхенде (18% скейлинг!)"
+                    or "Nirnhoned in off-hand (18% scaling!)") .. COLOR_RESET
+            elseif change.detail == "trait_correct_hand" then
+                changeText = COLOR_GREEN .. "  (+) " .. (lang == "ru"
+                    and "Nirnhoned в основной руке (100%)"
+                    or "Nirnhoned in main hand (100%)") .. COLOR_RESET
+            elseif change.detail == "dw_bonus" then
+                -- Info line, not up/down
+                local bonusName = change.value or ""
+                changeText = COLOR_CYAN .. "  >> DW: " .. bonusName .. COLOR_RESET
             end
 
             table.insert(lines, { text = changeText })
