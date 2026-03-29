@@ -91,6 +91,87 @@ SmartGear.TraitNames = {
 }
 
 ----------------------------------------------------------------------
+-- Stat targets per role (for adaptive gap analysis)
+-- Values represent "comfortably geared" targets, not hard caps.
+----------------------------------------------------------------------
+SmartGear.StatTargets = {
+    MagDD = {
+        weaponDamage = 6500,   -- weapon/spell damage (buffed)
+        critPercent  = 60,     -- critical chance % target
+        penetration  = 18200,  -- pen cap (dungeon boss resist)
+        maxResource  = 35000,  -- max magicka
+        maxHealth    = 20000,  -- survivability floor
+        resistance   = 0,
+        critResist   = 0,
+        healingDone  = 0,
+    },
+    StamDD = {
+        weaponDamage = 6500,
+        critPercent  = 60,
+        penetration  = 18200,
+        maxResource  = 35000,  -- max stamina
+        maxHealth    = 20000,
+        resistance   = 0,
+        critResist   = 0,
+        healingDone  = 0,
+    },
+    Tank = {
+        weaponDamage = 2000,   -- tanks care less about damage
+        critPercent  = 15,
+        penetration  = 10000,  -- crusher + pierce armor covers the rest
+        maxResource  = 30000,  -- balanced pools
+        maxHealth    = 45000,
+        resistance   = 33000,  -- armor cap
+        critResist   = 2500,
+        healingDone  = 0,
+    },
+    Healer = {
+        weaponDamage = 5000,
+        critPercent  = 50,     -- crit heals matter
+        penetration  = 10000,
+        maxResource  = 35000,
+        maxHealth    = 22000,
+        resistance   = 0,
+        critResist   = 0,
+        healingDone  = 15,
+    },
+}
+
+----------------------------------------------------------------------
+-- Trait -> stat mapping (for adaptive trait scoring)
+-- "mundus" resolves to the stat of the player's active mundus stone
+----------------------------------------------------------------------
+SmartGear.TraitStatMap = {
+    -- Armor traits
+    [ITEM_TRAIT_TYPE_ARMOR_DIVINES]       = { stat = "mundus",      weight = 1.0 },
+    [ITEM_TRAIT_TYPE_ARMOR_INFUSED]       = { stat = "enchant",     weight = 0.7 },
+    [ITEM_TRAIT_TYPE_ARMOR_REINFORCED]    = { stat = "resistance",  weight = 1.0 },
+    [ITEM_TRAIT_TYPE_ARMOR_STURDY]        = { stat = "blockCost",   weight = 1.0 },
+    [ITEM_TRAIT_TYPE_ARMOR_IMPENETRABLE]  = { stat = "critResist",  weight = 1.0 },
+    [ITEM_TRAIT_TYPE_ARMOR_WELL_FITTED]   = { stat = "dodge",       weight = 0.5 },
+    [ITEM_TRAIT_TYPE_ARMOR_NIRNHONED]     = { stat = "resistance",  weight = 0.8 },
+    [ITEM_TRAIT_TYPE_ARMOR_TRAINING]      = { stat = "none",        weight = 0.0 },
+    -- Weapon traits
+    [ITEM_TRAIT_TYPE_WEAPON_PRECISE]      = { stat = "critPercent", weight = 1.0 },
+    [ITEM_TRAIT_TYPE_WEAPON_SHARPENED]    = { stat = "penetration", weight = 1.0 },
+    [ITEM_TRAIT_TYPE_WEAPON_INFUSED]      = { stat = "enchant",     weight = 0.8 },
+    [ITEM_TRAIT_TYPE_WEAPON_CHARGED]      = { stat = "statusEffect", weight = 0.6 },
+    [ITEM_TRAIT_TYPE_WEAPON_NIRNHONED]    = { stat = "weaponDamage", weight = 1.0 },
+    [ITEM_TRAIT_TYPE_WEAPON_POWERED]      = { stat = "healingDone", weight = 1.0 },
+    [ITEM_TRAIT_TYPE_WEAPON_DECISIVE]     = { stat = "ultimateGen", weight = 0.6 },
+    [ITEM_TRAIT_TYPE_WEAPON_TRAINING]     = { stat = "none",        weight = 0.0 },
+    -- Jewelry traits
+    [ITEM_TRAIT_TYPE_JEWELRY_BLOODTHIRSTY] = { stat = "executeDmg",  weight = 0.8 },
+    [ITEM_TRAIT_TYPE_JEWELRY_ARCANE]       = { stat = "maxResource", weight = 0.8 },
+    [ITEM_TRAIT_TYPE_JEWELRY_ROBUST]       = { stat = "maxResource", weight = 0.8 },
+    [ITEM_TRAIT_TYPE_JEWELRY_INFUSED]      = { stat = "enchant",     weight = 0.7 },
+    [ITEM_TRAIT_TYPE_JEWELRY_PROTECTIVE]   = { stat = "resistance",  weight = 0.8 },
+    [ITEM_TRAIT_TYPE_JEWELRY_HARMONY]      = { stat = "ultimateGen", weight = 0.5 },
+    [ITEM_TRAIT_TYPE_JEWELRY_TRIUNE]       = { stat = "maxResource", weight = 0.7 },
+    [ITEM_TRAIT_TYPE_JEWELRY_SWIFT]        = { stat = "none",        weight = 0.0 },
+}
+
+----------------------------------------------------------------------
 -- Meta Sets Database (auto-generated)
 ----------------------------------------------------------------------
 SmartGear.MetaSets = {

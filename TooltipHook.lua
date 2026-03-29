@@ -234,6 +234,49 @@ local function BuildTooltipLines(eval)
         end
     end
 
+    -- Adaptive scoring info
+    if settings.showDetails then
+        local hasAdaptive = false
+        local adaptLine = COLOR_GRAY .. "  "
+            .. (lang == "ru" and "Адаптивно: " or "Adaptive: ")
+
+        if eval.traitGapAdjust and eval.traitGapAdjust ~= 0 then
+            local c = eval.traitGapAdjust > 0 and COLOR_GREEN or COLOR_RED
+            local s = eval.traitGapAdjust > 0 and "+" or ""
+            adaptLine = adaptLine .. c .. s .. eval.traitGapAdjust
+                .. (lang == "ru" and " трейт" or " trait") .. COLOR_RESET
+            hasAdaptive = true
+        end
+
+        if eval.setGapAdjust and eval.setGapAdjust ~= 0 then
+            local c = eval.setGapAdjust > 0 and COLOR_GREEN or COLOR_RED
+            local s = eval.setGapAdjust > 0 and "+" or ""
+            if hasAdaptive then adaptLine = adaptLine .. ", " end
+            adaptLine = adaptLine .. c .. s .. eval.setGapAdjust
+                .. (lang == "ru" and " сет" or " set") .. COLOR_RESET
+            hasAdaptive = true
+        end
+
+        if hasAdaptive then
+            adaptLine = adaptLine .. COLOR_GRAY
+                .. (lang == "ru" and " (ваш билд)" or " (your build)") .. COLOR_RESET
+            table.insert(lines, { text = adaptLine })
+        end
+
+        -- Mundus info if relevant to trait
+        if eval.traitGapAdjust and eval.traitGapAdjust ~= 0 then
+            local p = SmartGear.PlayerProfile
+            if p and p.mundusName and p.mundusName ~= "" then
+                local mName = lang == "ru" and (p.mundusNameRu or p.mundusName) or p.mundusName
+                table.insert(lines, {
+                    text = COLOR_GRAY .. "  "
+                        .. (lang == "ru" and "Мундус: " or "Mundus: ")
+                        .. COLOR_CYAN .. mName .. COLOR_RESET,
+                })
+            end
+        end
+    end
+
     -- Stickerbook note
     if eval.rating == SmartGear.RATING_STICKERBOOK and settings.showStickerbook then
         table.insert(lines, {

@@ -371,6 +371,141 @@ local function EvaluateArmorWeight(armorType, role)
 end
 
 ----------------------------------------------------------------------
+-- SHARED SCORING FUNCTION
+-- Computes score and rating from an already-populated result table.
+-- Called by both EvaluateItem and EvaluateItemLink.
+----------------------------------------------------------------------
+function SmartGear.ComputeScore(result, role, pvpMode)
+    -- Ensure player profile is up to date for adaptive scoring
+    SmartGear.EnsureProfileFresh()
+
+    local score = 0
+
+    -- === SET TIER SCORING ===
+    if result.isMetaSet and result.isForCurrentRole then
+        local tierBase = 10
+        if result.metaTier == "S" then tierBase = 40
+        elseif result.metaTier == "A" then tierBase = 30
+        elseif result.metaTier == "B" then tierBase = 20 end
+
+        local ratingBonus = 0
+        if result.metaRating and result.metaRating > 0 then
+            ratingBonus = math.floor(result.metaRating / 10)
+        end
+        score = score + tierBase + ratingBonus
+
+        -- === ADAPTIVE SET BONUS (gap-based) ===
+        local metaInfo = SmartGear.MetaSets and SmartGear.MetaSets[result.setName]
+        if metaInfo and metaInfo.statContributions then
+            local gaps = SmartGear.ComputeStatGaps(role)
+            local setAdjust = 0
+            for stat, contribution in pairs(metaInfo.statContributions) do
+                if gaps[stat] then
+                    local statAdj = math.floor((gaps[stat] - 0.2) * contribution * 30)
+                    statAdj = math.max(-1, math.min(3, statAdj))
+                    setAdjust = setAdjust + statAdj
+                end
+            end
+            setAdjust = math.max(-3, math.min(8, setAdjust))
+            score = score + setAdjust
+            result.setGapAdjust = setAdjust
+        end
+    elseif result.setName and not result.isMetaSet then
+        score = score + 5
+    end
+
+    -- === TRAIT SCORING (static base + adaptive adjustment) ===
+    local traitScore = 0
+    if result.isOptimalTrait then
+        traitScore = 20
+    elseif result.traitQuality == "good" then
+        traitScore = 10
+    elseif result.traitQuality == "suboptimal" then
+        traitScore = 3
+    elseif result.traitQuality == "bad" then
+        traitScore = -5
+    end
+
+    -- Adaptive trait adjustment based on stat gaps
+    local traitType = result.itemLink and GetItemLinkTraitType(result.itemLink) or nil
+    if traitType and SmartGear.TraitStatMap then
+        local traitStat = SmartGear.TraitStatMap[traitType]
+        if traitStat and traitStat.stat ~= "none" and traitStat.weight > 0 then
+            local gaps = SmartGear.ComputeStatGaps(role)
+            if gaps[traitStat.stat] then
+                local gapValue = gaps[traitStat.stat]
+                local adjustment = math.floor((gapValue - 0.3) * traitStat.weight * 12)
+                adjustment = math.max(-4, math.min(8, adjustment))
+                traitScore = traitScore + adjustment
+                result.traitGapAdjust = adjustment
+            end
+        end
+    end
+
+    score = score + traitScore
+
+    -- === WEIGHT SCORING ===
+    if result.isOptimalWeight then
+        score = score + 10
+    elseif result.armorWeight and result.armorWeight ~= ARMORTYPE_NONE then
+        score = score - 5
+    end
+
+    -- === SET SYNERGY ===
+    if result.completesSet then
+        score = score + 15
+    elseif result.isEquippedSet then
+        score = score + 8
+    end
+
+    -- === QUALITY ===
+    if result.quality then
+        if result.quality == ITEM_DISPLAY_QUALITY_LEGENDARY then
+            score = score + 5
+        elseif result.quality == ITEM_DISPLAY_QUALITY_ARTIFACT then
+            score = score + 3
+        end
+    end
+
+    -- === ITEM LEVEL ===
+    if result.itemLevel and result.itemLevel > 0 then
+        local maxLevel = 210
+        local levelRatio = result.itemLevel / maxLevel
+        score = score + math.floor(levelRatio * 15)
+    end
+
+    -- === MYTHIC ===
+    if result.isMythic and result.isForCurrentRole then
+        score = score + 20
+    end
+
+    -- === CONVERT TO RATING ===
+    if score >= 55 then
+        result.rating = SmartGear.RATING_RECOMMENDED
+        result.stars = 3
+    elseif score >= 35 then
+        result.rating = SmartGear.RATING_GOOD
+        result.stars = 3
+    elseif score >= 20 then
+        result.rating = SmartGear.RATING_DECENT
+        result.stars = 2
+    elseif score >= 5 then
+        result.rating = SmartGear.RATING_MAYBE
+        result.stars = 1
+    else
+        if result.isMetaSet and result.isForAnyRole and not result.isForCurrentRole then
+            result.rating = SmartGear.RATING_STICKERBOOK
+            result.stars = 0
+        else
+            result.rating = SmartGear.RATING_BAD
+            result.stars = 0
+        end
+    end
+
+    result.score = score
+end
+
+----------------------------------------------------------------------
 -- MAIN SCORING FUNCTION
 -- Returns a table with all evaluation details
 ----------------------------------------------------------------------
@@ -499,103 +634,8 @@ function SmartGear.EvaluateItem(bagId, slotIndex)
         result.isOptimalWeight = EvaluateArmorWeight(armorType, role)
     end
 
-    -- === COMPUTE FINAL RATING ===
-    local score = 0
-
-    if result.isMetaSet and result.isForCurrentRole then
-        -- Meta set for current role: tier base + internal rating bonus
-        local tierBase = 10
-        if result.metaTier == "S" then tierBase = 40
-        elseif result.metaTier == "A" then tierBase = 30
-        elseif result.metaTier == "B" then tierBase = 20 end
-
-        -- Internal rating (0-100) adds up to +10 bonus within tier
-        -- So S-tier rating 100 = 50, S-tier rating 30 = 43
-        local ratingBonus = 0
-        if result.metaRating and result.metaRating > 0 then
-            ratingBonus = math.floor(result.metaRating / 10)
-        end
-        score = score + tierBase + ratingBonus
-    elseif result.setName and not result.isMetaSet then
-        -- Has set but not in meta DB — neutral
-        score = score + 5
-    elseif not result.setName then
-        -- No set at all
-        score = score + 0
-    end
-
-    -- Trait scoring
-    if result.isOptimalTrait then
-        score = score + 20
-    elseif result.traitQuality == "good" then
-        score = score + 10
-    elseif result.traitQuality == "suboptimal" then
-        score = score + 3
-    elseif result.traitQuality == "bad" then
-        score = score - 5
-    end
-
-    -- Weight scoring
-    if result.isOptimalWeight then
-        score = score + 10
-    else
-        score = score - 5
-    end
-
-    -- Set synergy bonus
-    if result.completesSet then
-        score = score + 15
-    elseif result.isEquippedSet then
-        score = score + 8
-    end
-
-    -- Quality bonus
-    if result.quality then
-        if result.quality == ITEM_DISPLAY_QUALITY_LEGENDARY then
-            score = score + 5
-        elseif result.quality == ITEM_DISPLAY_QUALITY_ARTIFACT then
-            score = score + 3
-        end
-    end
-
-    -- Item level scoring (CP160 = max = 210 effective)
-    -- Higher level items have better base stats
-    if result.itemLevel > 0 then
-        local maxLevel = 210  -- 50 + CP160
-        local levelRatio = result.itemLevel / maxLevel
-        score = score + math.floor(levelRatio * 15)  -- up to +15 for max level
-    end
-
-    -- Mythic always relevant
-    if result.isMythic and result.isForCurrentRole then
-        score = score + 20
-    end
-
-    -- Convert score to rating
-    if score >= 55 then
-        result.rating = SmartGear.RATING_RECOMMENDED
-        result.stars = 3
-    elseif score >= 35 then
-        result.rating = SmartGear.RATING_GOOD
-        result.stars = 3
-    elseif score >= 20 then
-        result.rating = SmartGear.RATING_DECENT
-        result.stars = 2
-    elseif score >= 5 then
-        result.rating = SmartGear.RATING_MAYBE
-        result.stars = 1
-    else
-        -- Check stickerbook recommendation
-        if result.isMetaSet and result.isForAnyRole and not result.isForCurrentRole then
-            result.rating = SmartGear.RATING_STICKERBOOK
-            result.stars = 0
-        else
-            result.rating = SmartGear.RATING_BAD
-            result.stars = 0
-        end
-    end
-
-    result.score = score
+    -- === COMPUTE FINAL RATING (shared function) ===
+    SmartGear.ComputeScore(result, role, pvpMode)
     return result
 end
 
@@ -1182,57 +1222,7 @@ function SmartGear.EvaluateItemLink(itemLink)
         result.isOptimalWeight = EvaluateArmorWeight(armorType, role)
     end
 
-    -- === SCORING (same logic as bag version) ===
-    local score = 0
-
-    if result.isMetaSet and result.isForCurrentRole then
-        if result.metaTier == "S" then score = score + 40
-        elseif result.metaTier == "A" then score = score + 30
-        elseif result.metaTier == "B" then score = score + 20
-        else score = score + 10 end
-    elseif result.setName and not result.isMetaSet then
-        score = score + 5
-    end
-
-    if result.isOptimalTrait then score = score + 20
-    elseif result.traitQuality == "good" then score = score + 10
-    elseif result.traitQuality == "suboptimal" then score = score + 3
-    elseif result.traitQuality == "bad" then score = score - 5 end
-
-    if result.isOptimalWeight then score = score + 10
-    else score = score - 5 end
-
-    if result.completesSet then score = score + 15
-    elseif result.isEquippedSet then score = score + 8 end
-
-    if result.quality == ITEM_DISPLAY_QUALITY_LEGENDARY then score = score + 5
-    elseif result.quality == ITEM_DISPLAY_QUALITY_ARTIFACT then score = score + 3 end
-
-    -- Item level scoring (same as bag version)
-    if result.itemLevel > 0 then
-        local maxLevel = 210
-        local levelRatio = result.itemLevel / maxLevel
-        score = score + math.floor(levelRatio * 15)
-    end
-
-    if result.isMythic and result.isForCurrentRole then score = score + 20 end
-
-    if score >= 55 then
-        result.rating = SmartGear.RATING_RECOMMENDED; result.stars = 3
-    elseif score >= 35 then
-        result.rating = SmartGear.RATING_GOOD; result.stars = 3
-    elseif score >= 20 then
-        result.rating = SmartGear.RATING_DECENT; result.stars = 2
-    elseif score >= 5 then
-        result.rating = SmartGear.RATING_MAYBE; result.stars = 1
-    else
-        if result.isMetaSet and result.isForAnyRole and not result.isForCurrentRole then
-            result.rating = SmartGear.RATING_STICKERBOOK; result.stars = 0
-        else
-            result.rating = SmartGear.RATING_BAD; result.stars = 0
-        end
-    end
-
-    result.score = score
+    -- === SCORING (shared function) ===
+    SmartGear.ComputeScore(result, role, pvpMode)
     return result
 end

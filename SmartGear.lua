@@ -3,7 +3,7 @@
 ----------------------------------------------------------------------
 SmartGear = SmartGear or {}
 SmartGear.name = "SmartGear"
-SmartGear.version = "1.0.3"
+SmartGear.version = "1.1.0"
 SmartGear.savedVarsVersion = 1
 
 -- Default settings
@@ -331,6 +331,8 @@ local function OnAddonLoaded(event, addonName)
     SmartGear.currentRole = SmartGear.DetectRole()
 
     -- Initialize subsystems
+    SmartGear.InitPlayerProfile()
+    if SmartGear.PatchSetStatMap then SmartGear.PatchSetStatMap() end
     SmartGear.InitTooltipHooks()
     SmartGear.InitUpgradeAlerts()
     SmartGear.InitSettings()
@@ -398,12 +400,60 @@ SLASH_COMMANDS["/smartgear"] = function(args)
                 and "Оружие размещено оптимально."
                 or  "Weapons are optimally placed."))
         end
+    elseif args == "stats" then
+        SmartGear.RefreshPlayerProfile()
+        local p = SmartGear.PlayerProfile
+        local role = SmartGear.currentRole or "MagDD"
+        local lang = SmartGear.currentLang or "en"
+        local gaps = SmartGear.ComputeStatGaps(role)
+
+        d("|c00FF00[SmartGear]|r Player Stats (" .. SmartGear.GetRoleDisplayName(role) .. "):")
+
+        local effectiveWSD = math.max(p.weaponSpellDmg, math.max(p.weaponDamage, p.spellDamage))
+        local targets = SmartGear.StatTargets and SmartGear.StatTargets[role] or {}
+
+        local function fmtStat(label, current, target, gapKey)
+            local gapVal = gaps[gapKey] or 0
+            local gapText = ""
+            if gapVal <= 0 then
+                gapText = "|c00FF00CAPPED|r"
+            else
+                gapText = string.format("gap: |cFFFF00%.2f|r", gapVal)
+            end
+            d(string.format("  %s: |cFFFFFF%d|r / %d (%s)", label, current, target or 0, gapText))
+        end
+
+        fmtStat("WSD", effectiveWSD, targets.weaponDamage, "weaponDamage")
+        fmtStat("Crit", math.floor(p.effectiveCrit), targets.critPercent, "critPercent")
+        fmtStat("Pen", p.effectivePen, targets.penetration, "penetration")
+
+        if role == "MagDD" or role == "Healer" then
+            fmtStat("Max Magicka", p.maxMagicka, targets.maxResource, "maxResource")
+        elseif role == "StamDD" then
+            fmtStat("Max Stamina", p.maxStamina, targets.maxResource, "maxResource")
+        else
+            fmtStat("Max Health", p.maxHealth, targets.maxHealth, "maxHealth")
+            fmtStat("Resist", p.effectiveResist, targets.resistance, "resistance")
+        end
+
+        -- Mundus
+        local mName = lang == "ru" and (p.mundusNameRu or p.mundusName) or p.mundusName
+        if mName and mName ~= "" then
+            d("  Mundus: |c00DDFF" .. mName .. "|r (" .. (p.mundusStat or "?") .. ")")
+        else
+            d("  Mundus: |cFF0000" .. (lang == "ru" and "Не обнаружен" or "Not detected") .. "|r")
+        end
+
+        -- Race
+        local rName = lang == "ru" and (p.raceNameRu or p.raceName) or p.raceName
+        d("  Race: |cFFFF00" .. (rName or "?") .. "|r")
+
     else
         -- Open settings panel
         if SmartGear.OpenSettings then
             SmartGear.OpenSettings()
         else
-            d("|c00FF00[SmartGear]|r Commands: /smartgear role | refresh | scan | swap")
+            d("|c00FF00[SmartGear]|r Commands: /smartgear role | refresh | scan | swap | stats")
         end
     end
 end
