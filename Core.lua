@@ -214,6 +214,91 @@ function SmartGear.AnalyzeWeaponPlacement(itemLink, targetSlot)
 end
 
 ----------------------------------------------------------------------
+-- Check if equipped DW weapons on a bar should be swapped
+-- Returns: { shouldSwap, bar, mainSlot, offSlot, mainLink, offLink,
+--            scoreBenefit, reasons{} }  or nil
+----------------------------------------------------------------------
+function SmartGear.CheckEquippedWeaponSwap(bar)
+    -- bar 1 = primary, bar 2 = backup
+    local mainSlot, offSlot
+    if bar == 2 then
+        mainSlot = EQUIP_SLOT_BACKUP_MAIN
+        offSlot  = EQUIP_SLOT_BACKUP_OFF
+    else
+        mainSlot = EQUIP_SLOT_MAIN_HAND
+        offSlot  = EQUIP_SLOT_OFF_HAND
+    end
+
+    local mainLink = GetItemLink(BAG_WORN, mainSlot)
+    local offLink  = GetItemLink(BAG_WORN, offSlot)
+    if (not mainLink or mainLink == "") or (not offLink or offLink == "") then
+        return nil  -- need both weapons
+    end
+
+    -- Both must be one-hand
+    local mainEquip = GetItemLinkEquipType(mainLink)
+    local offEquip  = GetItemLinkEquipType(offLink)
+    if mainEquip ~= EQUIP_TYPE_ONE_HAND or offEquip ~= EQUIP_TYPE_ONE_HAND then
+        return nil
+    end
+
+    -- Score current placement
+    local _, curMainScore = SmartGear.AnalyzeWeaponPlacement(mainLink, mainSlot)
+    local _, curOffScore  = SmartGear.AnalyzeWeaponPlacement(offLink, offSlot)
+    local currentTotal = curMainScore + curOffScore
+
+    -- Score swapped placement (main weapon in off slot, off weapon in main slot)
+    local _, swapMainScore = SmartGear.AnalyzeWeaponPlacement(offLink, mainSlot)
+    local _, swapOffScore  = SmartGear.AnalyzeWeaponPlacement(mainLink, offSlot)
+    local swappedTotal = swapMainScore + swapOffScore
+
+    local benefit = swappedTotal - currentTotal
+    if benefit < 3 then return nil end  -- not worth swapping
+
+    -- Build reasons
+    local reasons = {}
+    local mainWeaponType = GetItemLinkWeaponType(mainLink)
+    local offWeaponType  = GetItemLinkWeaponType(offLink)
+    local mainTrait = GetItemLinkTraitType(mainLink)
+    local offTrait  = GetItemLinkTraitType(offLink)
+
+    if MAIN_HAND_TRAITS[offTrait] then
+        table.insert(reasons, "nirnhoned_to_main")
+    end
+    if HIGH_BASE_DMG[mainWeaponType] then
+        table.insert(reasons, "high_dmg_to_offhand")
+    end
+    if LOW_BASE_DMG[offWeaponType] then
+        table.insert(reasons, "dagger_to_main")
+    end
+
+    return {
+        shouldSwap = true,
+        bar = bar,
+        mainSlot = mainSlot,
+        offSlot = offSlot,
+        mainLink = mainLink,
+        offLink = offLink,
+        scoreBenefit = benefit,
+        reasons = reasons,
+    }
+end
+
+----------------------------------------------------------------------
+-- Check both bars for suboptimal weapon placement
+----------------------------------------------------------------------
+function SmartGear.CheckAllBarsWeaponSwap()
+    local results = {}
+    for bar = 1, 2 do
+        local swap = SmartGear.CheckEquippedWeaponSwap(bar)
+        if swap then
+            table.insert(results, swap)
+        end
+    end
+    return results
+end
+
+----------------------------------------------------------------------
 -- Evaluate armor trait quality for role
 ----------------------------------------------------------------------
 local function EvaluateArmorTrait(traitType, role, pvpMode)

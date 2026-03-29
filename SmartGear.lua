@@ -3,7 +3,7 @@
 ----------------------------------------------------------------------
 SmartGear = SmartGear or {}
 SmartGear.name = "SmartGear"
-SmartGear.version = "1.0.0"
+SmartGear.version = "1.0.2"
 SmartGear.savedVarsVersion = 1
 
 -- Default settings
@@ -382,12 +382,28 @@ SLASH_COMMANDS["/smartgear"] = function(args)
         d("|c00FF00[SmartGear]|r Data refreshed. Role: |cFFFF00" .. SmartGear.GetRoleDisplayName(SmartGear.currentRole) .. "|r")
     elseif args == "scan" then
         SmartGear.ScanUpgrades()
+    elseif args == "swap" then
+        local swaps = SmartGear.CheckAllBarsWeaponSwap()
+        if swaps and #swaps > 0 then
+            for _, s in ipairs(swaps) do
+                local barName = s.bar == 2 and "Bar 2" or "Bar 1"
+                local mainName = zo_strformat("<<1>>", GetItemLinkName(s.mainLink))
+                local offName  = zo_strformat("<<1>>", GetItemLinkName(s.offLink))
+                d("|c00FF00[SmartGear]|r " .. barName .. ": " .. mainName .. " <-> " .. offName .. " (+" .. s.scoreBenefit .. ")")
+            end
+            SmartGear.ShowSwapAlert(swaps[1])
+        else
+            local lang = SmartGear.currentLang or "en"
+            d("|c00FF00[SmartGear]|r " .. (lang == "ru"
+                and "Оружие размещено оптимально."
+                or  "Weapons are optimally placed."))
+        end
     else
         -- Open settings panel
         if SmartGear.OpenSettings then
             SmartGear.OpenSettings()
         else
-            d("|c00FF00[SmartGear]|r Commands: /smartgear role | /smartgear refresh")
+            d("|c00FF00[SmartGear]|r Commands: /smartgear role | refresh | scan | swap")
         end
     end
 end

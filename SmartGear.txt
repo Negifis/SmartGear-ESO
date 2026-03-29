@@ -1,8 +1,8 @@
 ## Title: SmartGear
 ## Description: Intelligent gear recommendation system. Shows meta-set ratings, trait analysis, and equip recommendations directly in item tooltips.
 ## Author: SmartGear Team
-## Version: 1.0.0
-## AddOnVersion: 100
+## Version: 1.0.2
+## AddOnVersion: 102
 ## APIVersion: 101042
 ## SavedVariables: SmartGearSavedVars
 ## OptionalDependsOn: LibAddonMenu-2.0

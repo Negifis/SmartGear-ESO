@@ -292,6 +292,30 @@ function SmartGear.InitUpgradeAlerts()
         REGISTER_FILTER_BAG_ID, BAG_BACKPACK
     )
 
+    -- Register for weapon equip changes -> check swap
+    EVENT_MANAGER:RegisterForEvent(
+        SmartGear.name .. "WeaponSwapCheck",
+        EVENT_INVENTORY_SINGLE_SLOT_UPDATE,
+        function(_, bagId, slotIndex)
+            if bagId ~= BAG_WORN then return end
+            -- Only care about weapon slots
+            if slotIndex == EQUIP_SLOT_MAIN_HAND
+                or slotIndex == EQUIP_SLOT_OFF_HAND
+                or slotIndex == EQUIP_SLOT_BACKUP_MAIN
+                or slotIndex == EQUIP_SLOT_BACKUP_OFF
+            then
+                zo_callLater(function()
+                    SmartGear.CheckWeaponSwaps()
+                end, 1500)
+            end
+        end
+    )
+    EVENT_MANAGER:AddFilterForEvent(
+        SmartGear.name .. "WeaponSwapCheck",
+        EVENT_INVENTORY_SINGLE_SLOT_UPDATE,
+        REGISTER_FILTER_BAG_ID, BAG_WORN
+    )
+
     -- Also scan on loot received
     EVENT_MANAGER:RegisterForEvent(
         SmartGear.name .. "LootAlert",
@@ -307,6 +331,8 @@ function SmartGear.InitUpgradeAlerts()
     zo_callLater(function()
         if SmartGear.savedVars and SmartGear.savedVars.showAlerts then
             ScanBagForUpgrades()
+            -- Also check weapon placement on load
+            zo_callLater(SmartGear.CheckWeaponSwaps, 1000)
         end
     end, 5000)
 end
@@ -319,5 +345,218 @@ function SmartGear.ScanUpgrades()
     if not isShowing then
         local lang = SmartGear.currentLang or "en"
         d("|c00FF00[SmartGear]|r " .. (lang == "ru" and "Улучшений не найдено." or "No upgrades found."))
+    end
+end
+
+----------------------------------------------------------------------
+-- Weapon Swap Suggestion
+----------------------------------------------------------------------
+local swapCooldown = false  -- prevent spam after swap
+
+local function GetSwapReasonText(reasons, lang)
+    local texts = {}
+    for _, r in ipairs(reasons) do
+        if r == "nirnhoned_to_main" then
+            table.insert(texts, lang == "ru"
+                and "Nirnhoned -> основная (100% скейлинг)"
+                or  "Nirnhoned -> main hand (100% scaling)")
+        elseif r == "high_dmg_to_offhand" then
+            table.insert(texts, lang == "ru"
+                and "Высокий урон -> левая (Эксперт ПО +3%)"
+                or  "High dmg -> off-hand (DW Expert +3%)")
+        elseif r == "dagger_to_main" then
+            table.insert(texts, lang == "ru"
+                and "Кинжал -> основная (низкий урон, трейт 100%)"
+                or  "Dagger -> main hand (low base, trait 100%)")
+        end
+    end
+    return table.concat(texts, ", ")
+end
+
+function SmartGear.ShowSwapAlert(swapData)
+    if not frame and not InitUI() then return end
+    if not frame then return end
+    if swapCooldown then return end
+
+    local lang = SmartGear.currentLang or "en"
+
+    -- Store swap data in currentAlert with a swap flag
+    currentAlert = {
+        isSwap = true,
+        bar = swapData.bar,
+        mainSlot = swapData.mainSlot,
+        offSlot = swapData.offSlot,
+        mainLink = swapData.mainLink,
+        offLink = swapData.offLink,
+        scoreBenefit = swapData.scoreBenefit,
+        reasons = swapData.reasons,
+    }
+    isShowing = true
+
+    -- Item name: show both weapons
+    local mainName = zo_strformat("<<1>>", GetItemLinkName(swapData.mainLink))
+    local offName  = zo_strformat("<<1>>", GetItemLinkName(swapData.offLink))
+    local mainQ = GetItemQualityColor(GetItemLinkQuality(swapData.mainLink))
+    local offQ  = GetItemQualityColor(GetItemLinkQuality(swapData.offLink))
+
+    itemNameLabel:SetText(mainQ:Colorize(mainName) .. " <-> " .. offQ:Colorize(offName))
+
+    -- Description: reason
+    local barText = swapData.bar == 2
+        and (lang == "ru" and "Бар 2" or "Bar 2")
+        or  (lang == "ru" and "Бар 1" or "Bar 1")
+    local reasonText = GetSwapReasonText(swapData.reasons, lang)
+    descLabel:SetText(barText .. ": " .. reasonText)
+
+    -- Score
+    local diff = swapData.scoreBenefit or 0
+    scoreLabel:SetText("|c00FF00^ +" .. diff .. " |r"
+        .. (lang == "ru" and "от перестановки" or "from swap"))
+
+    -- Icon: show main-hand weapon icon
+    local icon = GetItemLinkIcon(swapData.mainLink)
+    if icon and icon ~= "" then
+        iconTexture:SetTexture(icon)
+        iconTexture:SetHidden(false)
+    else
+        iconTexture:SetHidden(true)
+    end
+
+    -- Button text: SWAP
+    local btnLabel = equipBtn:GetNamedChild("Label")
+    if btnLabel then
+        btnLabel:SetText(lang == "ru" and "ПОМЕНЯТЬ" or "SWAP")
+    end
+
+    -- Override equip handler for swap mode
+    equipBtn:SetHandler("OnClicked", function()
+        SmartGear.OnSwapClicked()
+    end)
+
+    frame:SetHidden(false)
+
+    -- Auto-hide
+    if hideTimerId then
+        EVENT_MANAGER:UnregisterForUpdate(hideTimerId)
+    end
+    hideTimerId = SmartGear.name .. "AlertHide"
+    EVENT_MANAGER:RegisterForUpdate(hideTimerId, ALERT_DURATION * 1000, function()
+        SmartGear.HideAlert()
+        EVENT_MANAGER:UnregisterForUpdate(hideTimerId)
+    end)
+end
+
+----------------------------------------------------------------------
+-- Swap button handler: move weapons between main/off slots
+----------------------------------------------------------------------
+function SmartGear.OnSwapClicked()
+    if not currentAlert or not currentAlert.isSwap then return end
+
+    if IsUnitInCombat("player") then
+        local lang = SmartGear.currentLang or "en"
+        d("|c00FF00[SmartGear]|r " .. (lang == "ru"
+            and "Нельзя менять оружие в бою!"
+            or  "Cannot swap weapons in combat!"))
+        return
+    end
+
+    local mainSlot = currentAlert.mainSlot
+    local offSlot  = currentAlert.offSlot
+    local mainLink = currentAlert.mainLink
+    local offLink  = currentAlert.offLink
+
+    -- Verify weapons are still in place
+    local curMain = GetItemLink(BAG_WORN, mainSlot)
+    local curOff  = GetItemLink(BAG_WORN, offSlot)
+    if curMain ~= mainLink or curOff ~= offLink then
+        local lang = SmartGear.currentLang or "en"
+        d("|c00FF00[SmartGear]|r " .. (lang == "ru"
+            and "Оружие изменилось, отмена."
+            or  "Weapons changed, cancelled."))
+        SmartGear.HideAlert()
+        return
+    end
+
+    -- Prevent re-triggering during swap
+    swapCooldown = true
+
+    -- Swap via EquipItem (no protected calls needed):
+    -- Step 1: Equip off-hand weapon to main-hand slot.
+    --         The displaced main-hand weapon goes to BAG_BACKPACK automatically.
+    -- Step 2: Find the displaced weapon in backpack and equip it to off-hand.
+
+    EquipItem(BAG_WORN, offSlot, mainSlot)
+
+    zo_callLater(function()
+        -- Find the displaced main-hand weapon in backpack by matching link
+        local foundSlot = nil
+        for i = 0, GetBagSize(BAG_BACKPACK) - 1 do
+            local link = GetItemLink(BAG_BACKPACK, i)
+            if link == mainLink then
+                foundSlot = i
+                break
+            end
+        end
+
+        if foundSlot then
+            EquipItem(BAG_BACKPACK, foundSlot, offSlot)
+
+            local lang = SmartGear.currentLang or "en"
+            d("|c00FF00[SmartGear]|r " .. (lang == "ru"
+                and "Оружие переставлено!"
+                or  "Weapons swapped!"))
+        else
+            local lang = SmartGear.currentLang or "en"
+            d("|c00FF00[SmartGear]|r " .. (lang == "ru"
+                and "Не удалось найти оружие в сумке."
+                or  "Could not find weapon in bag."))
+        end
+
+        -- Cooldown reset after a delay
+        zo_callLater(function()
+            swapCooldown = false
+        end, 3000)
+    end, 400)
+
+    SmartGear.HideAlert()
+end
+
+----------------------------------------------------------------------
+-- Override HideAlert to restore equip handler
+----------------------------------------------------------------------
+local _origHideAlert = SmartGear.HideAlert
+SmartGear.HideAlert = function()
+    -- Restore equip button handler if it was in swap mode
+    if currentAlert and currentAlert.isSwap and equipBtn then
+        equipBtn:SetHandler("OnClicked", function()
+            SmartGear.OnEquipClicked()
+        end)
+    end
+    _origHideAlert()
+end
+
+----------------------------------------------------------------------
+-- Scan equipped weapons for suboptimal placement
+----------------------------------------------------------------------
+function SmartGear.CheckWeaponSwaps()
+    if not SmartGear.savedVars or not SmartGear.savedVars.showAlerts then return end
+    if COMBAT_LOCKOUT and IsUnitInCombat("player") then return end
+    if swapCooldown then return end
+
+    local swaps = SmartGear.CheckAllBarsWeaponSwap()
+    if swaps and #swaps > 0 then
+        -- Show the best swap suggestion
+        local best = swaps[1]
+        for _, s in ipairs(swaps) do
+            if s.scoreBenefit > best.scoreBenefit then
+                best = s
+            end
+        end
+
+        if isShowing then
+            -- Don't interrupt an upgrade alert with a swap suggestion
+        else
+            SmartGear.ShowSwapAlert(best)
+        end
     end
 end
