@@ -428,6 +428,7 @@ function SmartGear.EvaluateItem(bagId, slotIndex)
         isMonsterSet = false,
         isPvpSet = false,
         recommendTransmute = false,
+        equipType = GetItemLinkEquipType(itemLink),
     }
 
     -- === LEVEL ANALYSIS ===
@@ -853,22 +854,58 @@ function SmartGear._BuildComparison(newEval, wornSlot)
 
     local eqScore = equippedEval and equippedEval.score or 0
 
+    -- TWO-HAND vs DUAL WIELD penalty:
+    -- If the new item is 2H and the current main hand is 1H (dual wield),
+    -- equipping 2H will REMOVE the off-hand weapon too.
+    -- We must add the off-hand score to the "cost" of switching.
+    local twoHandPenalty = 0
+    local displacedOffName = nil
+    if newEval.equipType == EQUIP_TYPE_TWO_HAND and equippedEval then
+        local curEquipType = GetItemLinkEquipType(equippedLink)
+        if curEquipType == EQUIP_TYPE_ONE_HAND or curEquipType == EQUIP_TYPE_MAIN_HAND then
+            -- Find the corresponding off-hand slot
+            local offSlot = nil
+            if wornSlot == EQUIP_SLOT_MAIN_HAND then
+                offSlot = EQUIP_SLOT_OFF_HAND
+            elseif wornSlot == EQUIP_SLOT_BACKUP_MAIN then
+                offSlot = EQUIP_SLOT_BACKUP_OFF
+            end
+            if offSlot then
+                local offLink = GetItemLink(BAG_WORN, offSlot)
+                if offLink and offLink ~= "" then
+                    local offEval = EvaluateEquippedSlot(offSlot)
+                    if offEval then
+                        twoHandPenalty = offEval.score
+                        displacedOffName = GetItemName(BAG_WORN, offSlot)
+                        if displacedOffName then
+                            displacedOffName = zo_strformat("<<1>>", displacedOffName)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local totalEqScore = eqScore + twoHandPenalty
+
     local comp = {
         wornSlot        = wornSlot,
         slotEmpty       = slotEmpty,
         equippedLink    = equippedLink,
         equippedName    = equippedName or "",
-        equippedScore   = eqScore,
+        equippedScore   = totalEqScore,
         equippedSetName = equippedEval and equippedEval.setName or nil,
         equippedTraitName = equippedEval and equippedEval.traitName or nil,
         equippedRating  = equippedEval and equippedEval.rating or SmartGear.RATING_BAD,
         newScore        = newEval.score,
-        scoreDiff       = newEval.score - eqScore,
+        scoreDiff       = newEval.score - totalEqScore,
         isUpgrade       = false,
         isDowngrade     = false,
         isSidegrade     = false,
         verdict         = "unknown",
         changes         = {},
+        twoHandPenalty  = twoHandPenalty,
+        displacedOffName = displacedOffName,
     }
 
     if slotEmpty then
@@ -876,6 +913,16 @@ function SmartGear._BuildComparison(newEval, wornSlot)
         comp.verdict = "upgrade"
         table.insert(comp.changes, { aspect = "slot", direction = "up", detail = "empty_slot" })
         return comp
+    end
+
+    -- 2H displaces off-hand warning
+    if twoHandPenalty > 0 then
+        table.insert(comp.changes, {
+            aspect = "weapon", direction = "down",
+            detail = "displaces_offhand",
+            value = displacedOffName or "?",
+            penalty = twoHandPenalty,
+        })
     end
 
     -- Detailed change tracking
@@ -1068,6 +1115,7 @@ function SmartGear.EvaluateItemLink(itemLink)
         isMonsterSet = false,
         isPvpSet = false,
         recommendTransmute = false,
+        equipType = GetItemLinkEquipType(itemLink),
     }
 
     -- === LEVEL ANALYSIS (from link) ===

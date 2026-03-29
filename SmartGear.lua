@@ -3,7 +3,7 @@
 ----------------------------------------------------------------------
 SmartGear = SmartGear or {}
 SmartGear.name = "SmartGear"
-SmartGear.version = "1.0.2"
+SmartGear.version = "1.0.3"
 SmartGear.savedVarsVersion = 1
 
 -- Default settings

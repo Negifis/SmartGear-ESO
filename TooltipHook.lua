@@ -79,6 +79,10 @@ local function BuildTooltipLines(eval)
     if display and settings.showStars then
         local label = lang == "ru" and display.label_ru or display.label_en
         local ratingText = display.color .. display.stars .. " " .. label .. COLOR_RESET
+        -- Append numeric score
+        if eval.score then
+            ratingText = ratingText .. COLOR_GRAY .. "  [" .. eval.score .. "]" .. COLOR_RESET
+        end
         table.insert(lines, { text = ratingText })
     end
 
@@ -281,6 +285,17 @@ local function BuildComparisonLines(comp)
     end
     table.insert(lines, { text = verdictText })
 
+    -- Numeric score comparison line: [new] vs [equipped]
+    if comp.newScore and comp.equippedScore then
+        local scoreCompLine = COLOR_GRAY .. "  "
+            .. (lang == "ru" and "Рейтинг: " or "Score: ")
+            .. COLOR_WHITE .. comp.newScore
+            .. COLOR_GRAY .. " vs "
+            .. COLOR_WHITE .. comp.equippedScore
+            .. COLOR_RESET
+        table.insert(lines, { text = scoreCompLine })
+    end
+
     -- Slot label (Ring 1, Main Bar, etc.)
     local slotLabel = comp.slotLabel or ""
     local slotLabelRu = {
@@ -388,6 +403,12 @@ local function BuildComparisonLines(comp)
                 changeText = COLOR_ORANGE .. "  ? " .. (lang == "ru"
                     and "Лучше в оффхенд (Эксперт ПО)"
                     or "Better in off-hand (DW Expert)") .. COLOR_RESET
+            elseif change.detail == "displaces_offhand" then
+                local offName = change.value or "?"
+                local pen = change.penalty or 0
+                changeText = COLOR_RED .. "  ! " .. (lang == "ru"
+                    and "Уберет оффхенд: " .. offName .. " (-" .. pen .. ")"
+                    or  "Removes off-hand: " .. offName .. " (-" .. pen .. ")") .. COLOR_RESET
             elseif change.detail == "dw_bonus" then
                 -- Info line, not up/down
                 local bonusName = change.value or ""
