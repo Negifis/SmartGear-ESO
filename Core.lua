@@ -555,9 +555,9 @@ local function SmartCompare(newEval, equipType)
     if #comparisons == 0 then return nil end
 
     if strategy == "paired_replace_worst" then
-        -- Find the equipped slot with the LOWEST score (weakest item)
-        -- and compare against that — suggest replacing the worst piece.
-        -- Empty slots are only preferred if ALL slots are empty.
+        -- Smart priority for paired slots (rings, dual wield):
+        -- 1. Empty valid slot = free upgrade, always best option
+        -- 2. Occupied slot with lowest score = suggest replacing worst
         local worstOccupied = nil
         local firstEmpty = nil
         for _, comp in ipairs(comparisons) do
@@ -569,9 +569,12 @@ local function SmartCompare(newEval, equipType)
                 end
             end
         end
-        -- Prefer comparing against an occupied slot (replacing worst item)
-        -- Only suggest empty slot if no occupied slots exist
-        return worstOccupied or firstEmpty
+        -- Empty slot = free equip (no loss), always prefer it
+        -- Unless no empty slots, then suggest replacing the weakest item
+        if firstEmpty then
+            return firstEmpty
+        end
+        return worstOccupied
 
     elseif strategy == "bar_choice" then
         -- For weapons on different bars, show comparison for the bar
