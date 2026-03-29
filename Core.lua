@@ -452,11 +452,36 @@ local function GetComparisonSlots(equipType)
     end
 
     -- OFF_HAND (shield, torch, etc.): compare off-hand slots
+    -- But SKIP bars where a 2H weapon is equipped (2H blocks the off-hand)
     if equipType == EQUIP_TYPE_OFF_HAND then
-        return {
-            { slot = EQUIP_SLOT_OFF_HAND, label = "Main Bar Off-hand" },
-            { slot = EQUIP_SLOT_BACKUP_OFF, label = "Backup Bar Off-hand" },
-        }, "bar_choice"
+        local slots = {}
+
+        -- Main bar: only if NOT using 2H
+        local mainLink = GetItemLink(BAG_WORN, EQUIP_SLOT_MAIN_HAND)
+        local mainIs2H = false
+        if mainLink and mainLink ~= "" then
+            mainIs2H = (GetItemLinkEquipType(mainLink) == EQUIP_TYPE_TWO_HAND)
+        end
+        if not mainIs2H then
+            table.insert(slots, { slot = EQUIP_SLOT_OFF_HAND, label = "Main Bar Off-hand" })
+        end
+
+        -- Backup bar: only if NOT using 2H
+        local backupLink = GetItemLink(BAG_WORN, EQUIP_SLOT_BACKUP_MAIN)
+        local backupIs2H = false
+        if backupLink and backupLink ~= "" then
+            backupIs2H = (GetItemLinkEquipType(backupLink) == EQUIP_TYPE_TWO_HAND)
+        end
+        if not backupIs2H then
+            table.insert(slots, { slot = EQUIP_SLOT_BACKUP_OFF, label = "Backup Bar Off-hand" })
+        end
+
+        -- If both bars are 2H, no valid off-hand slot exists
+        if #slots == 0 then
+            return nil, nil
+        end
+
+        return slots, "bar_choice"
     end
 
     -- ONE_HAND: can go main hand OR off-hand on either bar
