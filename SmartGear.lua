@@ -17,6 +17,7 @@ SmartGear.defaults = {
     showComparison = true,    -- show vs equipped comparison block
     showAlerts = true,        -- show upgrade alert notifications
     language = "auto",        -- "auto", "en", "ru"
+    contentContext = "auto",  -- "auto", "solo", "dungeon", "trial", "pvp"
 }
 
 ----------------------------------------------------------------------
@@ -400,14 +401,30 @@ SLASH_COMMANDS["/smartgear"] = function(args)
                 and "Оружие размещено оптимально."
                 or  "Weapons are optimally placed."))
         end
+    elseif args == "buffs" then
+        -- Debug: dump all active buffs to chat
+        local numBuffs = GetNumBuffs("player") or 0
+        d("|c00FF00[SmartGear]|r Active buffs (" .. numBuffs .. "):")
+        for i = 1, numBuffs do
+            local buffName, timeStarted, timeEnding, buffSlot, stackCount,
+                  iconFilename, buffType, effectType, abilityType,
+                  statusEffectType, abilityId, canClickOff = GetUnitBuffInfo("player", i)
+            if buffName and buffName ~= "" then
+                d(string.format("  [%d] id=%s name=|cFFFF00%s|r icon=%s",
+                    i, tostring(abilityId), buffName, tostring(iconFilename)))
+            end
+        end
     elseif args == "stats" then
         SmartGear.RefreshPlayerProfile()
         local p = SmartGear.PlayerProfile
         local role = SmartGear.currentRole or "MagDD"
         local lang = SmartGear.currentLang or "en"
         local gaps = SmartGear.ComputeStatGaps(role)
+        local context = SmartGear.GetContentContext()
+        local ctxInfo = SmartGear.ContentContexts and SmartGear.ContentContexts[context]
+        local ctxName = ctxInfo and (lang == "ru" and ctxInfo.nameRu or ctxInfo.name) or context
 
-        d("|c00FF00[SmartGear]|r Player Stats (" .. SmartGear.GetRoleDisplayName(role) .. "):")
+        d("|c00FF00[SmartGear]|r " .. SmartGear.GetRoleDisplayName(role) .. " / |c00DDFF" .. ctxName .. "|r:")
 
         local effectiveWSD = math.max(p.weaponSpellDmg, math.max(p.weaponDamage, p.spellDamage))
         local targets = SmartGear.StatTargets and SmartGear.StatTargets[role] or {}

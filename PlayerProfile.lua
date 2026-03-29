@@ -7,23 +7,56 @@
 SmartGear = SmartGear or {}
 
 ----------------------------------------------------------------------
--- Mundus Stone ability ID -> stat mapping
--- IDs are stable across ESO patches (Mundus stones are base-game buffs)
+-- Mundus Stone detection
+-- Matched by buff name pattern (more reliable than ability IDs which
+-- can change between ESO patches). Supports EN and RU client.
 ----------------------------------------------------------------------
-local MUNDUS_STONES = {
-    [13940] = { name = "The Thief",       nameRu = "Вор",           stat = "critPercent",   value = 1548 },
-    [13943] = { name = "The Shadow",      nameRu = "Тень",          stat = "critDamage",    value = 12 },
-    [13974] = { name = "The Lover",       nameRu = "Любовник",      stat = "penetration",   value = 2752 },
-    [13975] = { name = "The Atronach",    nameRu = "Атронах",       stat = "magRecovery",   value = 310 },
-    [13976] = { name = "The Ritual",      nameRu = "Ритуал",        stat = "healingDone",   value = 10 },
-    [13977] = { name = "The Apprentice",  nameRu = "Ученик",        stat = "weaponDamage",  value = 238 },
-    [13984] = { name = "The Warrior",     nameRu = "Воин",          stat = "weaponDamage",  value = 238 },
-    [13979] = { name = "The Tower",       nameRu = "Башня",         stat = "maxResource",   value = 2028 },
-    [13980] = { name = "The Steed",       nameRu = "Конь",          stat = "maxHealth",     value = 2028 },
-    [13981] = { name = "The Lady",        nameRu = "Леди",          stat = "resistance",    value = 2752 },
-    [13982] = { name = "The Lord",        nameRu = "Лорд",          stat = "maxHealth",     value = 2028 },
-    [13978] = { name = "The Mage",        nameRu = "Маг",           stat = "maxResource",   value = 2028 },
-    [13942] = { name = "The Serpent",     nameRu = "Змей",          stat = "stamRecovery",  value = 310 },
+local MUNDUS_BY_NAME = {
+    -- English names
+    ["the thief"]       = { name = "The Thief",       nameRu = "Вор",           stat = "critPercent" },
+    ["the shadow"]      = { name = "The Shadow",      nameRu = "Тень",          stat = "critDamage" },
+    ["the lover"]       = { name = "The Lover",       nameRu = "��юбовник",      stat = "penetration" },
+    ["the atronach"]    = { name = "The Atronach",    nameRu = "Атронах",       stat = "magRecovery" },
+    ["the ritual"]      = { name = "The Ritual",      nameRu = "Ритуал",        stat = "healingDone" },
+    ["the apprentice"]  = { name = "The Apprentice",  nameRu = "Ученик",        stat = "weaponDamage" },
+    ["the warrior"]     = { name = "The Warrior",     nameRu = "Воин",          stat = "weaponDamage" },
+    ["the tower"]       = { name = "The Tower",       nameRu = "Башня",         stat = "maxResource" },
+    ["the steed"]       = { name = "The Steed",       nameRu = "Конь",          stat = "maxHealth" },
+    ["the lady"]        = { name = "The Lady",        nameRu = "Леди",          stat = "resistance" },
+    ["the lord"]        = { name = "The Lord",        nameRu = "Лорд",          stat = "maxHealth" },
+    ["the mage"]        = { name = "The Mage",        nameRu = "��аг",           stat = "maxResource" },
+    ["the serpent"]     = { name = "The Serpent",      nameRu = "Зм��й",          stat = "stamRecovery" },
+    -- Russian names (for RU client)
+    ["вор"]        = { name = "The Thief",       nameRu = "Вор",           stat = "critPercent" },
+    ["тень"]       = { name = "The Shadow",      nameRu = "Тень",          stat = "critDamage" },
+    ["любовник"]   = { name = "The Lover",       nameRu = "Л��бовник",      stat = "penetration" },
+    ["атронах"]    = { name = "The Atronach",    nameRu = "Атронах",       stat = "magRecovery" },
+    ["ритуал"]     = { name = "The Ritual",      nameRu = "Ритуал",        stat = "healingDone" },
+    ["ученик"]     = { name = "The Apprentice",  nameRu = "��ченик",        stat = "weaponDamage" },
+    ["воин"]       = { name = "The Warrior",     nameRu = "Воин",          stat = "weaponDamage" },
+    ["башня"]      = { name = "The Tower",       nameRu = "Башня",         stat = "maxResource" },
+    ["конь"]       = { name = "The Steed",       nameRu = "Конь",          stat = "maxHealth" },
+    ["леди"]       = { name = "The Lady",        nameRu = "Леди",          stat = "resistance" },
+    ["лорд"]       = { name = "The Lord",        nameRu = "Л��рд",          stat = "maxHealth" },
+    ["маг"]        = { name = "The Mage",        nameRu = "Маг",           stat = "maxResource" },
+    ["змей"]       = { name = "The Serpent",      nameRu = "Змей",          stat = "stamRecovery" },
+}
+
+-- Icon-based fallback: mundus stone buff icons contain specific keywords
+local MUNDUS_BY_ICON = {
+    ["ability_mundusstones_00"]  = "the thief",
+    ["ability_mundusstones_01"]  = "the shadow",
+    ["ability_mundusstones_02"]  = "the lover",
+    ["ability_mundusstones_03"]  = "the atronach",
+    ["ability_mundusstones_04"]  = "the ritual",
+    ["ability_mundusstones_05"]  = "the apprentice",
+    ["ability_mundusstones_06"]  = "the warrior",
+    ["ability_mundusstones_07"]  = "the tower",
+    ["ability_mundusstones_08"]  = "the steed",
+    ["ability_mundusstones_09"]  = "the lady",
+    ["ability_mundusstones_010"] = "the lord",
+    ["ability_mundusstones_011"] = "the mage",
+    ["ability_mundusstones_012"] = "the serpent",
 }
 
 ----------------------------------------------------------------------
@@ -149,7 +182,37 @@ end
 
 ----------------------------------------------------------------------
 -- Detect mundus stone from active buffs
+-- Uses buff name matching (EN/RU) with icon fallback.
 ----------------------------------------------------------------------
+local function MatchMundus(buffName, iconFilename)
+    if not buffName then return nil end
+
+    -- Try exact name match (lowercase)
+    local lowerName = string.lower(buffName)
+    if MUNDUS_BY_NAME[lowerName] then
+        return MUNDUS_BY_NAME[lowerName]
+    end
+
+    -- Try partial match: buff name might be "Boon: The Lady" or localized variant
+    for key, mundus in pairs(MUNDUS_BY_NAME) do
+        if string.find(lowerName, key, 1, true) then
+            return mundus
+        end
+    end
+
+    -- Icon-based fallback
+    if iconFilename then
+        local lowerIcon = string.lower(iconFilename)
+        for iconKey, nameKey in pairs(MUNDUS_BY_ICON) do
+            if string.find(lowerIcon, iconKey, 1, true) then
+                return MUNDUS_BY_NAME[nameKey]
+            end
+        end
+    end
+
+    return nil
+end
+
 local function ReadMundus()
     local p = SmartGear.PlayerProfile
     p.mundusId     = nil
@@ -164,8 +227,8 @@ local function ReadMundus()
               iconFilename, buffType, effectType, abilityType,
               statusEffectType, abilityId, canClickOff = GetUnitBuffInfo("player", i)
 
-        if abilityId and MUNDUS_STONES[abilityId] then
-            local mundus = MUNDUS_STONES[abilityId]
+        local mundus = MatchMundus(buffName, iconFilename)
+        if mundus then
             p.mundusId     = abilityId
             p.mundusName   = mundus.name
             p.mundusNameRu = mundus.nameRu
@@ -199,13 +262,39 @@ function SmartGear.EnsureProfileFresh()
 end
 
 ----------------------------------------------------------------------
--- Gap analysis: compare current stats to role targets
+-- Get current content context
+----------------------------------------------------------------------
+function SmartGear.GetContentContext()
+    -- Priority: savedVars override > auto-detect PvP > default
+    if SmartGear.savedVars and SmartGear.savedVars.contentContext then
+        local ctx = SmartGear.savedVars.contentContext
+        if ctx ~= "auto" then return ctx end
+    end
+
+    -- Auto-detect PvP zones
+    if IsPlayerInAvAWorld and IsPlayerInAvAWorld() then
+        return "pvp"
+    end
+    if IsActiveWorldBattleground and IsActiveWorldBattleground() then
+        return "pvp"
+    end
+
+    -- Default: dungeon (most common group play)
+    return "dungeon"
+end
+
+----------------------------------------------------------------------
+-- Gap analysis: compare current stats to role targets FOR CONTEXT
 -- Returns table of gap scores 0.0 (capped) to 1.0 (empty)
 ----------------------------------------------------------------------
 function SmartGear.ComputeStatGaps(role)
     SmartGear.EnsureProfileFresh()
 
-    local targets = SmartGear.StatTargets and SmartGear.StatTargets[role]
+    local context = SmartGear.GetContentContext()
+    local roleTargets = SmartGear.StatTargets and SmartGear.StatTargets[role]
+    if not roleTargets then return {} end
+
+    local targets = roleTargets[context] or roleTargets["dungeon"]
     if not targets then return {} end
 
     local p = SmartGear.PlayerProfile
@@ -225,7 +314,7 @@ function SmartGear.ComputeStatGaps(role)
     -- Critical chance (%)
     gaps.critPercent = gap(p.effectiveCrit, targets.critPercent)
 
-    -- Penetration
+    -- Penetration (personal target — group buffs already subtracted in StatTargets)
     gaps.penetration = gap(p.effectivePen, targets.penetration)
 
     -- Max resource (mag or stam depending on role)
@@ -240,7 +329,7 @@ function SmartGear.ComputeStatGaps(role)
     -- Max health
     gaps.maxHealth = gap(p.maxHealth, targets.maxHealth)
 
-    -- Resistance (for tanks)
+    -- Resistance (for tanks and PvP)
     gaps.resistance = gap(p.effectiveResist, targets.resistance or 0)
 
     -- Crit resist
@@ -256,13 +345,21 @@ function SmartGear.ComputeStatGaps(role)
         gaps.mundus = 0.5  -- unknown mundus = neutral
     end
 
-    -- Stats without explicit targets get neutral gap
-    gaps.executeDmg    = 0.4  -- Bloodthirsty: always somewhat useful for DD
-    gaps.statusEffect  = 0.3  -- Charged: moderate value
-    gaps.enchant       = 0.4  -- Infused: generally useful
-    gaps.blockCost     = (role == "Tank") and 0.6 or 0.1
-    gaps.dodge         = 0.15 -- Well-Fitted: rarely optimal
-    gaps.critDamage    = gaps.critPercent * 0.8  -- correlated with crit need
+    -- Context-aware implicit gaps
+    local isDDRole = (role == "MagDD" or role == "StamDD")
+    local isSolo = (context == "solo")
+    local isPvP = (context == "pvp")
+
+    gaps.executeDmg    = isDDRole and 0.4 or 0.1
+    gaps.statusEffect  = 0.3
+    gaps.enchant       = 0.4
+    gaps.blockCost     = (role == "Tank") and 0.6 or (isPvP and 0.3 or 0.1)
+    gaps.dodge         = isPvP and 0.3 or 0.15
+    gaps.critDamage    = gaps.critPercent * 0.8
+    gaps.ultimateGen   = (role == "Tank") and 0.4 or 0.2
+
+    -- Store context for tooltip display
+    SmartGear.lastContext = context
 
     return gaps
 end

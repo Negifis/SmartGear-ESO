@@ -52,13 +52,43 @@ function SmartGear.InitSettings()
             end,
             width = "full",
         },
-        -- PvP mode
+        -- Content context
+        {
+            type = "dropdown",
+            name = lang == "ru" and "Контент" or "Content Context",
+            tooltip = lang == "ru"
+                and "Определяет целевые статы: соло (нужен свой пен), данж (танк дает пен), триал (полная поддержка), PvP (выживаемость)"
+                or "Sets stat targets: solo (self-pen needed), dungeon (tank provides pen), trial (full support), PvP (survivability)",
+            choices = lang == "ru"
+                and { "Авто", "Соло", "Данж", "Триал", "PvP" }
+                or  { "Auto", "Solo", "Dungeon", "Trial", "PvP" },
+            choicesValues = { "auto", "solo", "dungeon", "trial", "pvp" },
+            getFunc = function() return sv.contentContext or "auto" end,
+            setFunc = function(value)
+                sv.contentContext = value
+                SmartGear.PlayerProfile.dirty = true
+            end,
+            default = "auto",
+            width = "full",
+        },
+        -- Current context info
+        {
+            type = "description",
+            text = function()
+                local ctx = SmartGear.GetContentContext()
+                local info = SmartGear.ContentContexts and SmartGear.ContentContexts[ctx]
+                local ctxName = info and (lang == "ru" and info.nameRu or info.name) or ctx
+                return (lang == "ru" and "Текущий контекст: " or "Active context: ") .. "|c00DDFF" .. ctxName .. "|r"
+            end,
+            width = "full",
+        },
+        -- PvP mode (legacy, still used for trait recommendations)
         {
             type = "checkbox",
-            name = lang == "ru" and "PvP режим" or "PvP Mode",
+            name = lang == "ru" and "PvP режим (трейты)" or "PvP Mode (traits)",
             tooltip = lang == "ru"
-                and "Включает рекомендации для PvP (Impenetrable вместо Divines)"
-                or "Enable PvP recommendations (Impenetrable instead of Divines)",
+                and "Рекомендует Impenetrable вместо Divines для брони"
+                or "Recommends Impenetrable instead of Divines for armor",
             getFunc = function() return sv.pvpMode end,
             setFunc = function(value) sv.pvpMode = value end,
             default = SmartGear.defaults.pvpMode,

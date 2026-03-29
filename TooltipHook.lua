@@ -88,10 +88,15 @@ local function BuildTooltipLines(eval)
 
     -- Details section
     if settings.showDetails then
-        -- Role
+        -- Role + Context
         local roleName = SmartGear.GetRoleDisplayName(eval.role)
+        local context = SmartGear.lastContext or SmartGear.GetContentContext()
+        local ctxInfo = SmartGear.ContentContexts and SmartGear.ContentContexts[context]
+        local ctxName = ctxInfo and (lang == "ru" and ctxInfo.nameRu or ctxInfo.name) or ""
         table.insert(lines, {
-            text = COLOR_GRAY .. (lang == "ru" and "Роль: " or "Role: ") .. COLOR_YELLOW .. roleName .. COLOR_RESET,
+            text = COLOR_GRAY .. (lang == "ru" and "Роль: " or "Role: ")
+                .. COLOR_YELLOW .. roleName .. COLOR_RESET
+                .. COLOR_GRAY .. " | " .. COLOR_CYAN .. ctxName .. COLOR_RESET,
         })
 
         -- Meta set info

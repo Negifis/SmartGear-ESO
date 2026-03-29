@@ -91,49 +91,203 @@ SmartGear.TraitNames = {
 }
 
 ----------------------------------------------------------------------
--- Stat targets per role (for adaptive gap analysis)
--- Values represent "comfortably geared" targets, not hard caps.
+-- Content Contexts
+-- Each context adjusts stat targets based on what the player
+-- has access to (group buffs, tank debuffs, healer support).
 ----------------------------------------------------------------------
-SmartGear.StatTargets = {
-    MagDD = {
-        weaponDamage = 6500,   -- weapon/spell damage (buffed)
-        critPercent  = 60,     -- critical chance % target
-        penetration  = 18200,  -- pen cap (dungeon boss resist)
-        maxResource  = 35000,  -- max magicka
-        maxHealth    = 20000,  -- survivability floor
+SmartGear.ContentContexts = {
+    solo      = { name = "Solo",         nameRu = "Соло",           desc = "Overland, questing, solo arenas" },
+    dungeon   = { name = "Dungeon",      nameRu = "Данж",           desc = "4-man group dungeons" },
+    trial     = { name = "Trial",        nameRu = "Триал",          desc = "12-man raids with full support" },
+    pvp       = { name = "PvP",          nameRu = "PvP",            desc = "Battlegrounds, Cyrodiil" },
+}
+
+----------------------------------------------------------------------
+-- Group buff assumptions per context
+-- These are subtracted from raw targets to get personal targets.
+----------------------------------------------------------------------
+SmartGear.GroupBuffs = {
+    solo = {
+        penFromGroup    = 0,       -- no tank
+        wsdFromGroup    = 0,       -- no healer courage
+        critFromGroup   = 0,       -- only self-buffs
+        hasMajorForce   = false,   -- no warhorn
+        hasMajorSlayer  = false,
+    },
+    dungeon = {
+        penFromGroup    = 11030,   -- Major+Minor Breach (8922) + Crusher (2108)
+        wsdFromGroup    = 430,     -- Major Courage from healer
+        critFromGroup   = 0,
+        hasMajorForce   = false,   -- rare in dungeons
+        hasMajorSlayer  = false,
+    },
+    trial = {
+        penFromGroup    = 17000,   -- Breach + Crusher + Alkosh
+        wsdFromGroup    = 645,     -- Major+Minor Courage
+        critFromGroup   = 0,
+        hasMajorForce   = true,    -- +20% crit dmg from warhorn
+        hasMajorSlayer  = true,    -- +10% damage
+    },
+    pvp = {
+        penFromGroup    = 0,       -- solo or small group
+        wsdFromGroup    = 0,
+        critFromGroup   = 0,
+        hasMajorForce   = false,
+        hasMajorSlayer  = false,
+    },
+}
+
+----------------------------------------------------------------------
+-- Stat targets per role PER CONTEXT
+-- These are PERSONAL targets (after subtracting group buffs).
+--
+-- Research sources: Alcast, Skinnycheeks, Hack the Minotaur,
+-- ArzyeLBuilds, The Tank Club, ESO-Hub, UESP (2025-2026 meta).
+----------------------------------------------------------------------
+SmartGear.StatTargets = {}
+
+-- DD targets by context
+SmartGear.StatTargets.MagDD = {
+    solo = {
+        weaponDamage = 4500,   -- no group courage, self-buffed
+        critPercent  = 50,
+        penetration  = 14000,  -- solo arena: no tank, need high self-pen
+        maxResource  = 30000,
+        maxHealth    = 22000,  -- survivability matters solo
         resistance   = 0,
         critResist   = 0,
         healingDone  = 0,
+        -- Solo priorities: survivability > sustain > pen > crit > damage
+        priorities = { "maxHealth", "maxResource", "penetration", "critPercent", "weaponDamage" },
     },
-    StamDD = {
-        weaponDamage = 6500,
+    dungeon = {
+        weaponDamage = 5000,   -- group provides ~430 from Major Courage
         critPercent  = 60,
-        penetration  = 18200,
-        maxResource  = 35000,  -- max stamina
-        maxHealth    = 20000,
+        penetration  = 7200,   -- 18200 - 11030 from tank
+        maxResource  = 32000,
+        maxHealth    = 18000,  -- healer present
         resistance   = 0,
         critResist   = 0,
         healingDone  = 0,
+        priorities = { "penetration", "critPercent", "weaponDamage", "maxResource" },
     },
-    Tank = {
-        weaponDamage = 2000,   -- tanks care less about damage
-        critPercent  = 15,
-        penetration  = 10000,  -- crusher + pierce armor covers the rest
-        maxResource  = 30000,  -- balanced pools
-        maxHealth    = 45000,
-        resistance   = 33000,  -- armor cap
-        critResist   = 2500,
-        healingDone  = 0,
-    },
-    Healer = {
-        weaponDamage = 5000,
-        critPercent  = 50,     -- crit heals matter
-        penetration  = 10000,
-        maxResource  = 35000,
-        maxHealth    = 22000,
+    trial = {
+        weaponDamage = 4000,   -- group provides ~645 WSD
+        critPercent  = 60,
+        penetration  = 1200,   -- 18200 - 17000 from full group
+        maxResource  = 32000,
+        maxHealth    = 17000,  -- full healer support
         resistance   = 0,
         critResist   = 0,
-        healingDone  = 15,
+        healingDone  = 0,
+        priorities = { "critPercent", "weaponDamage", "maxResource" },
+    },
+    pvp = {
+        weaponDamage = 5500,   -- burst damage
+        critPercent  = 40,     -- crit less reliable in PvP (crit resist)
+        penetration  = 12000,  -- players have 20-33k resist
+        maxResource  = 28000,
+        maxHealth    = 28000,  -- survivability critical
+        resistance   = 25000,  -- need defenses
+        critResist   = 2000,
+        healingDone  = 0,
+        priorities = { "maxHealth", "penetration", "weaponDamage", "resistance", "maxResource" },
+    },
+}
+
+-- StamDD same structure as MagDD
+SmartGear.StatTargets.StamDD = {
+    solo = {
+        weaponDamage = 4500,   critPercent  = 50,
+        penetration  = 14000,  maxResource  = 30000,
+        maxHealth    = 22000,  resistance   = 0,
+        critResist   = 0,      healingDone  = 0,
+        priorities = { "maxHealth", "maxResource", "penetration", "critPercent", "weaponDamage" },
+    },
+    dungeon = {
+        weaponDamage = 5000,   critPercent  = 60,
+        penetration  = 7200,   maxResource  = 32000,
+        maxHealth    = 18000,  resistance   = 0,
+        critResist   = 0,      healingDone  = 0,
+        priorities = { "penetration", "critPercent", "weaponDamage", "maxResource" },
+    },
+    trial = {
+        weaponDamage = 4000,   critPercent  = 60,
+        penetration  = 1200,   maxResource  = 32000,
+        maxHealth    = 17000,  resistance   = 0,
+        critResist   = 0,      healingDone  = 0,
+        priorities = { "critPercent", "weaponDamage", "maxResource" },
+    },
+    pvp = {
+        weaponDamage = 5500,   critPercent  = 40,
+        penetration  = 12000,  maxResource  = 28000,
+        maxHealth    = 28000,  resistance   = 25000,
+        critResist   = 2000,   healingDone  = 0,
+        priorities = { "maxHealth", "penetration", "weaponDamage", "resistance", "maxResource" },
+    },
+}
+
+-- Tank targets
+SmartGear.StatTargets.Tank = {
+    solo = {
+        weaponDamage = 2500,   critPercent  = 15,
+        penetration  = 9100,   maxResource  = 25000,
+        maxHealth    = 35000,  resistance   = 30000,
+        critResist   = 0,      healingDone  = 0,
+        priorities = { "resistance", "maxHealth", "maxResource" },
+    },
+    dungeon = {
+        weaponDamage = 2000,   critPercent  = 10,
+        penetration  = 0,      maxResource  = 28000,
+        maxHealth    = 35000,  resistance   = 28000,
+        critResist   = 0,      healingDone  = 0,
+        priorities = { "resistance", "maxHealth", "maxResource" },
+    },
+    trial = {
+        weaponDamage = 2000,   critPercent  = 10,
+        penetration  = 0,      maxResource  = 30000,
+        maxHealth    = 42000,  resistance   = 33000,
+        critResist   = 0,      healingDone  = 0,
+        priorities = { "maxHealth", "resistance", "maxResource" },
+    },
+    pvp = {
+        weaponDamage = 3000,   critPercent  = 15,
+        penetration  = 8000,   maxResource  = 28000,
+        maxHealth    = 35000,  resistance   = 33000,
+        critResist   = 3000,   healingDone  = 0,
+        priorities = { "resistance", "maxHealth", "critResist", "maxResource" },
+    },
+}
+
+-- Healer targets
+SmartGear.StatTargets.Healer = {
+    solo = {
+        weaponDamage = 4000,   critPercent  = 45,
+        penetration  = 9100,   maxResource  = 32000,
+        maxHealth    = 22000,  resistance   = 0,
+        critResist   = 0,      healingDone  = 10,
+        priorities = { "maxHealth", "maxResource", "weaponDamage", "critPercent" },
+    },
+    dungeon = {
+        weaponDamage = 3000,   critPercent  = 50,
+        penetration  = 0,      maxResource  = 35000,
+        maxHealth    = 20000,  resistance   = 0,
+        critResist   = 0,      healingDone  = 12,
+        priorities = { "maxResource", "critPercent", "weaponDamage" },
+    },
+    trial = {
+        weaponDamage = 3500,   critPercent  = 55,
+        penetration  = 0,      maxResource  = 38000,
+        maxHealth    = 21000,  resistance   = 0,
+        critResist   = 0,      healingDone  = 15,
+        priorities = { "maxResource", "critPercent", "weaponDamage", "healingDone" },
+    },
+    pvp = {
+        weaponDamage = 3500,   critPercent  = 35,
+        penetration  = 6000,   maxResource  = 30000,
+        maxHealth    = 28000,  resistance   = 25000,
+        critResist   = 2000,   healingDone  = 8,
+        priorities = { "maxHealth", "resistance", "maxResource", "weaponDamage" },
     },
 }
 
