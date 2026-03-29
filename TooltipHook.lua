@@ -372,6 +372,22 @@ local function BuildComparisonLines(comp)
                 changeText = COLOR_GREEN .. "  (+) " .. (lang == "ru"
                     and "Nirnhoned в основной руке (100%)"
                     or "Nirnhoned in main hand (100%)") .. COLOR_RESET
+            elseif change.detail == "dw_expert_bad_offhand" then
+                changeText = COLOR_RED .. "  ! " .. (lang == "ru"
+                    and "Кинжал в оффхенде: низкий урон для Эксперта ПО"
+                    or "Dagger in off-hand: low dmg for DW Expert") .. COLOR_RESET
+            elseif change.detail == "dw_expert_good_offhand" then
+                changeText = COLOR_GREEN .. "  (+) " .. (lang == "ru"
+                    and "Высокий урон в оффхенде (Эксперт ПО +3%)"
+                    or "High dmg in off-hand (DW Expert +3%)") .. COLOR_RESET
+            elseif change.detail == "dagger_main_optimal" then
+                changeText = COLOR_GREEN .. "  (+) " .. (lang == "ru"
+                    and "Кинжал в основной руке (оптимально)"
+                    or "Dagger in main hand (optimal)") .. COLOR_RESET
+            elseif change.detail == "high_dmg_main_waste" then
+                changeText = COLOR_ORANGE .. "  ? " .. (lang == "ru"
+                    and "Лучше в оффхенд (Эксперт ПО)"
+                    or "Better in off-hand (DW Expert)") .. COLOR_RESET
             elseif change.detail == "dw_bonus" then
                 -- Info line, not up/down
                 local bonusName = change.value or ""

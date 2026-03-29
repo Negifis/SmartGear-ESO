@@ -107,22 +107,49 @@ SmartGear.DW_WEAPON_BONUSES = {
 }
 
 ----------------------------------------------------------------------
--- Weapon slot awareness for trait optimization
--- Main hand gets 100% damage scaling, off-hand gets ~18%
--- So damage traits (Nirnhoned) should always be on main hand
+-- Weapon slot awareness
+--
+-- Three placement rules in dual wield:
+--
+-- 1. TRAIT SCALING: Main hand = 100% damage scaling, off-hand = ~18%.
+--    So Nirnhoned (+200 dmg) goes in MAIN hand.
+--    Charged/Infused/Precise go in OFF hand (flat bonuses, no scaling).
+--
+-- 2. DUAL WIELD EXPERT passive: "Weapon/Spell Damage increased by
+--    3% of off-hand weapon's base damage." Higher base damage weapons
+--    (axe/sword/mace) should go in OFF hand.
+--    Daggers have LOWEST base damage -> best in MAIN hand.
+--
+-- 3. TWIN BLADE AND BLUNT passive: Each weapon type gives a bonus
+--    regardless of hand. Dagger=Crit, Axe=CritDmg, Sword=Dmg, Mace=Pen.
+--
+-- OPTIMAL META SETUP:
+--   Main hand: Dagger (Nirnhoned) — crit from TBB, trait scales 100%
+--   Off hand:  Axe (Precise/Charged) — crit dmg from TBB, high base for DWE
 ----------------------------------------------------------------------
 local MAIN_HAND_TRAITS = {
-    [ITEM_TRAIT_TYPE_WEAPON_NIRNHONED] = true,  -- +200 dmg, only useful at 100% scaling
+    [ITEM_TRAIT_TYPE_WEAPON_NIRNHONED] = true,
 }
 local OFF_HAND_TRAITS = {
-    [ITEM_TRAIT_TYPE_WEAPON_CHARGED]   = true,  -- enchant proc, doesn't depend on scaling
-    [ITEM_TRAIT_TYPE_WEAPON_INFUSED]   = true,  -- enchant power, works on either hand
-    [ITEM_TRAIT_TYPE_WEAPON_PRECISE]   = true,  -- crit, flat bonus
+    [ITEM_TRAIT_TYPE_WEAPON_CHARGED]   = true,
+    [ITEM_TRAIT_TYPE_WEAPON_INFUSED]   = true,
+    [ITEM_TRAIT_TYPE_WEAPON_PRECISE]   = true,
+}
+
+-- Weapons with HIGH base damage -> better in off-hand (DW Expert passive)
+local HIGH_BASE_DMG = {
+    [WEAPONTYPE_AXE]    = true,
+    [WEAPONTYPE_SWORD]  = true,
+    [WEAPONTYPE_HAMMER] = true,
+}
+-- Weapons with LOW base damage -> better in main hand
+local LOW_BASE_DMG = {
+    [WEAPONTYPE_DAGGER] = true,
 }
 
 ----------------------------------------------------------------------
 -- Analyze weapon placement: is this weapon optimal for the target slot?
--- Returns: slotAdvice string, bonus/penalty score
+-- Returns: advice string, score bonus, dwBonus info, placement hints
 ----------------------------------------------------------------------
 function SmartGear.AnalyzeWeaponPlacement(itemLink, targetSlot)
     if not itemLink or itemLink == "" then return nil, 0 end
@@ -139,35 +166,51 @@ function SmartGear.AnalyzeWeaponPlacement(itemLink, targetSlot)
 
     local advice = nil
     local scoreBonus = 0
+    local placementHints = {}
 
-    -- Trait placement check
+    -- === TRAIT PLACEMENT (100% vs 18% scaling) ===
     if traitType then
         if isMainHand and MAIN_HAND_TRAITS[traitType] then
-            -- Nirnhoned in main hand = correct
             scoreBonus = scoreBonus + 3
             advice = "trait_correct_main"
         elseif isOffHand and MAIN_HAND_TRAITS[traitType] then
-            -- Nirnhoned in off-hand = wasted (only 18% scaling)
             scoreBonus = scoreBonus - 5
             advice = "trait_wrong_offhand"
+            table.insert(placementHints, "nirnhoned_offhand")
         elseif isOffHand and OFF_HAND_TRAITS[traitType] then
-            -- Charged/Infused/Precise in off-hand = correct
             scoreBonus = scoreBonus + 2
             advice = "trait_correct_off"
-        elseif isMainHand and OFF_HAND_TRAITS[traitType] then
-            -- Charged in main hand = suboptimal but not terrible
-            scoreBonus = scoreBonus + 0
         end
     end
 
-    -- Twin Blade and Blunt awareness
+    -- === DUAL WIELD EXPERT: base damage in off-hand ===
+    if weaponType then
+        if isOffHand and HIGH_BASE_DMG[weaponType] then
+            -- High base damage in off-hand = correct (DW Expert bonus)
+            scoreBonus = scoreBonus + 3
+            table.insert(placementHints, "high_dmg_offhand_good")
+        elseif isOffHand and LOW_BASE_DMG[weaponType] then
+            -- Dagger in off-hand = bad for DW Expert (low base damage)
+            scoreBonus = scoreBonus - 2
+            table.insert(placementHints, "low_dmg_offhand_bad")
+        elseif isMainHand and LOW_BASE_DMG[weaponType] then
+            -- Dagger in main hand = correct (low base, but 100% trait scaling)
+            scoreBonus = scoreBonus + 2
+            table.insert(placementHints, "dagger_main_good")
+        elseif isMainHand and HIGH_BASE_DMG[weaponType] then
+            -- Axe/sword in main hand = lost DW Expert potential
+            scoreBonus = scoreBonus - 1
+            table.insert(placementHints, "high_dmg_main_suboptimal")
+        end
+    end
+
+    -- === TWIN BLADE AND BLUNT info ===
     local dwBonus = SmartGear.DW_WEAPON_BONUSES[weaponType]
     if dwBonus then
-        -- Add info about what this weapon type provides
         advice = advice or "dw_bonus"
     end
 
-    return advice, scoreBonus, dwBonus
+    return advice, scoreBonus, dwBonus, placementHints
 end
 
 ----------------------------------------------------------------------
@@ -820,14 +863,15 @@ function SmartGear._BuildComparison(newEval, wornSlot)
         end
     end
 
-    -- Weapon placement analysis (trait in correct hand + DW bonuses)
+    -- Weapon placement analysis (trait + DW Expert + Twin Blade)
     if newEval.itemLink then
-        local advice, placementBonus, dwBonus = SmartGear.AnalyzeWeaponPlacement(newEval.itemLink, wornSlot)
+        local advice, placementBonus, dwBonus, hints = SmartGear.AnalyzeWeaponPlacement(newEval.itemLink, wornSlot)
         if advice then
             comp.weaponAdvice = advice
             comp.weaponDwBonus = dwBonus
             comp.scoreDiff = comp.scoreDiff + placementBonus
 
+            -- Trait hand warnings
             if advice == "trait_wrong_offhand" then
                 table.insert(comp.changes, {
                     aspect = "weapon", direction = "down",
@@ -840,7 +884,34 @@ function SmartGear._BuildComparison(newEval, wornSlot)
                 })
             end
 
-            -- Add DW weapon type info
+            -- DW Expert placement hints
+            if hints then
+                for _, hint in ipairs(hints) do
+                    if hint == "low_dmg_offhand_bad" then
+                        table.insert(comp.changes, {
+                            aspect = "weapon", direction = "down",
+                            detail = "dw_expert_bad_offhand",
+                        })
+                    elseif hint == "high_dmg_offhand_good" then
+                        table.insert(comp.changes, {
+                            aspect = "weapon", direction = "up",
+                            detail = "dw_expert_good_offhand",
+                        })
+                    elseif hint == "dagger_main_good" then
+                        table.insert(comp.changes, {
+                            aspect = "weapon", direction = "up",
+                            detail = "dagger_main_optimal",
+                        })
+                    elseif hint == "high_dmg_main_suboptimal" then
+                        table.insert(comp.changes, {
+                            aspect = "weapon", direction = "down",
+                            detail = "high_dmg_main_waste",
+                        })
+                    end
+                end
+            end
+
+            -- Twin Blade and Blunt info
             if dwBonus then
                 table.insert(comp.changes, {
                     aspect = "weapon_type", direction = "info",
