@@ -100,10 +100,10 @@ end
 -- Each weapon type gives a different bonus, regardless of hand
 ----------------------------------------------------------------------
 SmartGear.DW_WEAPON_BONUSES = {
-    [WEAPONTYPE_DAGGER]           = { stat = "crit",   desc_en = "Crit Chance",       desc_ru = "Шанс крита" },
-    [WEAPONTYPE_ONE_HANDED_AXE]   = { stat = "critdmg", desc_en = "Crit Damage",      desc_ru = "Крит. урон" },
-    [WEAPONTYPE_ONE_HANDED_SWORD] = { stat = "damage",  desc_en = "Weapon/Spell Dmg", desc_ru = "Сила урона" },
-    [WEAPONTYPE_ONE_HANDED_HAMMER]= { stat = "pen",    desc_en = "Penetration",       desc_ru = "Пробивание" },
+    [WEAPONTYPE_DAGGER] = { stat = "crit",   desc_en = "Crit Chance",       desc_ru = "Шанс крита" },
+    [WEAPONTYPE_AXE]    = { stat = "critdmg", desc_en = "Crit Damage",      desc_ru = "Крит. урон" },
+    [WEAPONTYPE_SWORD]  = { stat = "damage",  desc_en = "Weapon/Spell Dmg", desc_ru = "Сила урона" },
+    [WEAPONTYPE_HAMMER] = { stat = "pen",    desc_en = "Penetration",       desc_ru = "Пробивание" },
 }
 
 ----------------------------------------------------------------------
