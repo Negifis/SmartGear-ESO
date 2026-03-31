@@ -207,6 +207,41 @@ def _role_from_bonuses(bonuses_text):
     return list(roles) if roles else ["MagDD", "StamDD"]  # default to DPS
 
 
+def _extract_stat_contributions(bonuses_lower):
+    """Extract stat contributions from set bonus description text.
+    Returns dict of {stat: weight} or empty dict."""
+    contribs = {}
+
+    # Weapon/Spell Damage
+    if any(kw in bonuses_lower for kw in ["weapon and spell damage", "weapon damage", "spell damage"]):
+        contribs["weaponDamage"] = 0.10
+    # Critical
+    if any(kw in bonuses_lower for kw in ["critical chance", "weapon critical", "spell critical"]):
+        contribs["critPercent"] = 0.10
+    if "critical damage" in bonuses_lower:
+        contribs["critDamage"] = 0.08
+    # Penetration
+    if "penetration" in bonuses_lower:
+        contribs["penetration"] = 0.10
+    # Max resources
+    if "max magicka" in bonuses_lower or "max stamina" in bonuses_lower:
+        contribs["maxResource"] = 0.08
+    if "max health" in bonuses_lower:
+        contribs["maxHealth"] = 0.06
+    # Resistance
+    if any(kw in bonuses_lower for kw in ["physical resistance", "spell resistance", "armor"]):
+        contribs["resistance"] = 0.08
+    # Healing
+    if "healing done" in bonuses_lower or "healing taken" in bonuses_lower:
+        contribs["healingDone"] = 0.08
+    # Generic damage (procs, % damage)
+    if any(kw in bonuses_lower for kw in ["damage dealt", "direct damage", "damage over time",
+                                           "additional damage", "deals.*damage"]):
+        contribs["damage"] = 0.10
+
+    return contribs
+
+
 def merge_all(api_sets, alcast_mentions, skinny_mentions, eso_hub_data, overrides):
     """
     Merge all data sources into a final set database.
@@ -290,12 +325,30 @@ def merge_all(api_sets, alcast_mentions, skinny_mentions, eso_hub_data, override
                     "bonuses_text": "",
                     "roles": set(),
                     "mention_score": 0,
+                    "context_scores": {"solo": 0, "group": 0, "trial": 0, "pvp": 0},
                     "notes": "",
                 }
+
+        # Initialize context_scores if missing
+        if "context_scores" not in master[key]:
+            master[key]["context_scores"] = {"solo": 0, "group": 0, "trial": 0, "pvp": 0}
 
         master[key]["mention_score"] += mention.get("weight", 1)
         if mention.get("role"):
             master[key]["roles"].add(mention["role"])
+
+        # Track per-context scores
+        ctx = mention.get("context", "group")
+        if ctx == "trial":
+            # Trial mentions count for both trial and group (dungeon)
+            master[key]["context_scores"]["trial"] += mention.get("weight", 1)
+            master[key]["context_scores"]["group"] += mention.get("weight", 1) * 0.5
+        elif ctx == "group":
+            # Group mentions count for both dungeon and trial (less for trial)
+            master[key]["context_scores"]["group"] += mention.get("weight", 1)
+            master[key]["context_scores"]["trial"] += mention.get("weight", 1) * 0.7
+        else:
+            master[key]["context_scores"][ctx] += mention.get("weight", 1)
 
     # Assign tiers and internal rating based on mention score
     # With precise table parsing, weights are much more meaningful:
@@ -329,6 +382,62 @@ def merge_all(api_sets, alcast_mentions, skinny_mentions, eso_hub_data, override
             data["rating"] = min(100, round((score / max_score) * 100))
         else:
             data["rating"] = 0
+
+        # Generate context-specific tiers from per-context scores
+        ctx_scores = data.get("context_scores", {})
+        context_tiers = {}
+        for ctx in ["solo", "group", "trial", "pvp"]:
+            cs = ctx_scores.get(ctx, 0)
+            if cs >= 12:
+                context_tiers[ctx] = "S"
+            elif cs >= 6:
+                context_tiers[ctx] = "A"
+            elif cs >= 2:
+                context_tiers[ctx] = "B"
+            elif cs >= 1:
+                context_tiers[ctx] = "C"
+            # else: no tier for this context (use base tier)
+
+        # Apply heuristics for sets with no context-specific mentions:
+        # - PvP sets: boost in pvp, penalize in pve
+        if data.get("is_pvp") and "pvp" not in context_tiers:
+            context_tiers["pvp"] = data["tier"] or "B"
+            # PvP-only sets are bad in PvE
+            for pve_ctx in ["solo", "group", "trial"]:
+                if pve_ctx not in context_tiers:
+                    context_tiers[pve_ctx] = "C"
+
+        # - Pen sets: great solo, worse in trials
+        bonuses_lower = data.get("bonuses_text", "").lower()
+        has_pen_bonus = "penetration" in bonuses_lower and "physical" in bonuses_lower
+        if has_pen_bonus and data["tier"] in ("S", "A"):
+            if "solo" not in context_tiers:
+                context_tiers["solo"] = "S"
+            if "trial" not in context_tiers:
+                context_tiers["trial"] = "C"
+
+        # - Self-heal/sustain-on-kill sets: great solo, bad in group
+        has_self_heal = any(kw in bonuses_lower for kw in [
+            "restore.*health.*killing", "heal.*kill", "when you kill",
+            "killing a target", "killing blow",
+        ])
+        if has_self_heal and data["tier"] in ("S", "A"):
+            if "solo" not in context_tiers:
+                context_tiers["solo"] = "S"
+            if "trial" not in context_tiers:
+                context_tiers["trial"] = "C"
+
+        # Only store if any context differs from base tier
+        if context_tiers:
+            data["context_tiers"] = context_tiers
+        # "group" context maps to "dungeon" in the addon
+        if "group" in context_tiers:
+            data.setdefault("context_tiers", {})["dungeon"] = context_tiers["group"]
+
+        # Extract statContributions from bonuses_text
+        stat_contribs = _extract_stat_contributions(bonuses_lower)
+        if stat_contribs:
+            data["stat_contributions"] = stat_contribs
 
         # If no roles from mentions, try guessing from bonuses
         if not data["roles"] and data["tier"]:
@@ -374,7 +483,7 @@ def merge_all(api_sets, alcast_mentions, skinny_mentions, eso_hub_data, override
     final = []
     for key, data in master.items():
         if data.get("tier"):
-            final.append({
+            entry = {
                 "name": data["name"],
                 "roles": sorted(list(data["roles"])),
                 "tier": data["tier"],
@@ -384,7 +493,12 @@ def merge_all(api_sets, alcast_mentions, skinny_mentions, eso_hub_data, override
                 "is_monster": data.get("is_monster", False),
                 "is_mythic": data.get("is_mythic", False),
                 "is_pvp": data.get("is_pvp", False),
-            })
+            }
+            if data.get("context_tiers"):
+                entry["context_tiers"] = data["context_tiers"]
+            if data.get("stat_contributions"):
+                entry["stat_contributions"] = data["stat_contributions"]
+            final.append(entry)
 
     # Sort: S tier first, then A, B, C; within tier by rating (highest first)
     tier_order = {"S": 0, "A": 1, "B": 2, "C": 3}

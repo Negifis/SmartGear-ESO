@@ -27,6 +27,14 @@ ROLE_PATTERNS = [
     (re.compile(r"2h\s+stam|bow\s+", re.I), "StamDD"),
 ]
 
+# Content context detection from URL/title
+CONTEXT_PATTERNS = [
+    (re.compile(r"solo|maelstrom|vateshran|overland|one.?bar", re.I), "solo"),
+    (re.compile(r"pvp|battleground|cyrodiil|imperial.?city", re.I), "pvp"),
+    (re.compile(r"trial|raid|12.?man|sunspire|rockgrove|asylum|cloudrest|hel.?ra|aetherian", re.I), "trial"),
+    # Everything else = group (dungeon) by default
+]
+
 # Setup priority: lower = better (primary gear > beginner)
 SETUP_PRIORITY = {
     "1": 1.0,     # Primary/endgame
@@ -71,6 +79,16 @@ def _detect_role(url, title):
             return role
     # Default: DPS (most builds on Alcast are DPS)
     return "MagDD"
+
+
+def _detect_context(url, title):
+    """Detect content context from build URL/title."""
+    text = f"{url} {title}"
+    for pattern, context in CONTEXT_PATTERNS:
+        if pattern.search(text):
+            return context
+    # Default: group PvE (dungeon/trial builds are most common)
+    return "group"
 
 
 def _get_build_links(html):
@@ -289,6 +307,7 @@ def parse_alcast_builds(use_cache=True, max_builds=30):
     total_sets = 0
     for url, title in build_links[:max_builds]:
         role = _detect_role(url, title)
+        context = _detect_context(url, title)
 
         cache_name = re.sub(r"[^a-z0-9]", "_", url.split("/")[-2] if "/" in url else title)[:50]
         html = _get_cached_or_fetch(url, cache_name, use_cache=use_cache)
@@ -301,6 +320,9 @@ def parse_alcast_builds(use_cache=True, max_builds=30):
 
         # Compute weighted scores
         results = _compute_set_scores(raw_sets, noteworthy, role)
+        # Tag each result with content context
+        for r in results:
+            r["context"] = context
         all_results.extend(results)
         total_sets += len(results)
 

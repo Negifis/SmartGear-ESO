@@ -15,6 +15,78 @@ def _format_roles(roles):
     return "{ " + ", ".join(parts) + " }"
 
 
+def _emit_stat_targets(lines):
+    """Emit StatTargets tables (context-aware, per role)."""
+    # These are based on research from Alcast, Skinnycheeks, Hack The Minotaur, etc.
+    targets = {
+        "MagDD": {
+            "solo":    {"weaponDamage": 4500, "critPercent": 50, "penetration": 14000, "maxResource": 30000, "maxHealth": 22000, "resistance": 0, "critResist": 0, "healingDone": 0},
+            "dungeon": {"weaponDamage": 5000, "critPercent": 60, "penetration": 7200,  "maxResource": 32000, "maxHealth": 18000, "resistance": 0, "critResist": 0, "healingDone": 0},
+            "trial":   {"weaponDamage": 4000, "critPercent": 60, "penetration": 1200,  "maxResource": 32000, "maxHealth": 17000, "resistance": 0, "critResist": 0, "healingDone": 0},
+            "pvp":     {"weaponDamage": 5500, "critPercent": 40, "penetration": 12000, "maxResource": 28000, "maxHealth": 28000, "resistance": 25000, "critResist": 2000, "healingDone": 0},
+        },
+        "StamDD": {
+            "solo":    {"weaponDamage": 4500, "critPercent": 50, "penetration": 14000, "maxResource": 30000, "maxHealth": 22000, "resistance": 0, "critResist": 0, "healingDone": 0},
+            "dungeon": {"weaponDamage": 5000, "critPercent": 60, "penetration": 7200,  "maxResource": 32000, "maxHealth": 18000, "resistance": 0, "critResist": 0, "healingDone": 0},
+            "trial":   {"weaponDamage": 4000, "critPercent": 60, "penetration": 1200,  "maxResource": 32000, "maxHealth": 17000, "resistance": 0, "critResist": 0, "healingDone": 0},
+            "pvp":     {"weaponDamage": 5500, "critPercent": 40, "penetration": 12000, "maxResource": 28000, "maxHealth": 28000, "resistance": 25000, "critResist": 2000, "healingDone": 0},
+        },
+        "Tank": {
+            "solo":    {"weaponDamage": 2500, "critPercent": 15, "penetration": 9100,  "maxResource": 25000, "maxHealth": 35000, "resistance": 30000, "critResist": 0, "healingDone": 0},
+            "dungeon": {"weaponDamage": 2000, "critPercent": 10, "penetration": 0,     "maxResource": 28000, "maxHealth": 35000, "resistance": 28000, "critResist": 0, "healingDone": 0},
+            "trial":   {"weaponDamage": 2000, "critPercent": 10, "penetration": 0,     "maxResource": 30000, "maxHealth": 42000, "resistance": 33000, "critResist": 0, "healingDone": 0},
+            "pvp":     {"weaponDamage": 3000, "critPercent": 15, "penetration": 8000,  "maxResource": 28000, "maxHealth": 35000, "resistance": 33000, "critResist": 3000, "healingDone": 0},
+        },
+        "Healer": {
+            "solo":    {"weaponDamage": 4000, "critPercent": 45, "penetration": 9100,  "maxResource": 32000, "maxHealth": 22000, "resistance": 0, "critResist": 0, "healingDone": 10},
+            "dungeon": {"weaponDamage": 3000, "critPercent": 50, "penetration": 0,     "maxResource": 35000, "maxHealth": 20000, "resistance": 0, "critResist": 0, "healingDone": 12},
+            "trial":   {"weaponDamage": 3500, "critPercent": 55, "penetration": 0,     "maxResource": 38000, "maxHealth": 21000, "resistance": 0, "critResist": 0, "healingDone": 15},
+            "pvp":     {"weaponDamage": 3500, "critPercent": 35, "penetration": 6000,  "maxResource": 30000, "maxHealth": 28000, "resistance": 25000, "critResist": 2000, "healingDone": 8},
+        },
+    }
+    for role, contexts in targets.items():
+        lines.append(f"SmartGear.StatTargets.{role} = {{")
+        for ctx, stats in contexts.items():
+            parts = [f"{k} = {v}" for k, v in stats.items()]
+            lines.append(f'    {ctx} = {{ {", ".join(parts)} }},')
+        lines.append("}")
+        lines.append("")
+
+
+def _emit_trait_stat_map(lines):
+    """Emit TraitStatMap table."""
+    lines.append("SmartGear.TraitStatMap = {")
+    trait_map = [
+        ("ITEM_TRAIT_TYPE_ARMOR_DIVINES",       "mundus",       1.0),
+        ("ITEM_TRAIT_TYPE_ARMOR_INFUSED",       "enchant",      0.7),
+        ("ITEM_TRAIT_TYPE_ARMOR_REINFORCED",    "resistance",   1.0),
+        ("ITEM_TRAIT_TYPE_ARMOR_STURDY",        "blockCost",    1.0),
+        ("ITEM_TRAIT_TYPE_ARMOR_IMPENETRABLE",  "critResist",   1.0),
+        ("ITEM_TRAIT_TYPE_ARMOR_WELL_FITTED",   "dodge",        0.5),
+        ("ITEM_TRAIT_TYPE_ARMOR_NIRNHONED",     "resistance",   0.8),
+        ("ITEM_TRAIT_TYPE_ARMOR_TRAINING",      "none",         0.0),
+        ("ITEM_TRAIT_TYPE_WEAPON_PRECISE",      "critPercent",  1.0),
+        ("ITEM_TRAIT_TYPE_WEAPON_SHARPENED",    "penetration",  1.0),
+        ("ITEM_TRAIT_TYPE_WEAPON_INFUSED",      "enchant",      0.8),
+        ("ITEM_TRAIT_TYPE_WEAPON_CHARGED",      "statusEffect", 0.6),
+        ("ITEM_TRAIT_TYPE_WEAPON_NIRNHONED",    "weaponDamage", 1.0),
+        ("ITEM_TRAIT_TYPE_WEAPON_POWERED",      "healingDone",  1.0),
+        ("ITEM_TRAIT_TYPE_WEAPON_DECISIVE",     "ultimateGen",  0.6),
+        ("ITEM_TRAIT_TYPE_WEAPON_TRAINING",     "none",         0.0),
+        ("ITEM_TRAIT_TYPE_JEWELRY_BLOODTHIRSTY", "executeDmg",  0.8),
+        ("ITEM_TRAIT_TYPE_JEWELRY_ARCANE",       "maxResource", 0.8),
+        ("ITEM_TRAIT_TYPE_JEWELRY_ROBUST",       "maxResource", 0.8),
+        ("ITEM_TRAIT_TYPE_JEWELRY_INFUSED",      "enchant",     0.7),
+        ("ITEM_TRAIT_TYPE_JEWELRY_PROTECTIVE",   "resistance",  0.8),
+        ("ITEM_TRAIT_TYPE_JEWELRY_HARMONY",      "ultimateGen", 0.5),
+        ("ITEM_TRAIT_TYPE_JEWELRY_TRIUNE",       "maxResource", 0.7),
+        ("ITEM_TRAIT_TYPE_JEWELRY_SWIFT",        "none",        0.0),
+    ]
+    for const, stat, weight in trait_map:
+        lines.append(f'    [{const}] = {{ stat = "{stat}", weight = {weight} }},')
+    lines.append("}")
+
+
 def generate_metadata_lua(sets, output_path):
     """Generate MetaData.lua from merged set data.
 
@@ -127,6 +199,23 @@ def generate_metadata_lua(sets, output_path):
     lines.append("}")
     lines.append("")
 
+    # StatTargets (context-aware)
+    lines.append("----------------------------------------------------------------------")
+    lines.append("-- Stat targets per role PER CONTEXT (for adaptive gap analysis)")
+    lines.append("-- Auto-generated. Edit via overrides or re-run updater.")
+    lines.append("----------------------------------------------------------------------")
+    lines.append("SmartGear.StatTargets = {}")
+    lines.append("")
+    _emit_stat_targets(lines)
+    lines.append("")
+
+    # TraitStatMap
+    lines.append("----------------------------------------------------------------------")
+    lines.append("-- Trait -> stat mapping (for adaptive trait scoring)")
+    lines.append("----------------------------------------------------------------------")
+    _emit_trait_stat_map(lines)
+    lines.append("")
+
     # MetaSets (generated!)
     lines.append("----------------------------------------------------------------------")
     lines.append("-- Meta Sets Database (auto-generated)")
@@ -177,6 +266,19 @@ def generate_metadata_lua(sets, output_path):
                 lines.append(f'        isMythic = true,')
             if s.get("is_pvp"):
                 lines.append(f'        pvpOnly = true,')
+            if s.get("context_tiers"):
+                ct = s["context_tiers"]
+                parts = []
+                for ctx in ["solo", "dungeon", "trial", "pvp"]:
+                    if ctx in ct:
+                        parts.append(f'{ctx} = "{ct[ctx]}"')
+                if parts:
+                    lines.append(f'        contextTiers = {{ {", ".join(parts)} }},')
+            if s.get("stat_contributions"):
+                sc = s["stat_contributions"]
+                parts = [f'{k} = {v}' for k, v in sorted(sc.items())]
+                if parts:
+                    lines.append(f'        statContributions = {{ {", ".join(parts)} }},')
             lines.append(f'    }},')
 
         lines.append("")
@@ -205,6 +307,19 @@ def generate_metadata_lua(sets, output_path):
                 lines.append(f'        isMythic = true,')
             if s.get("is_pvp"):
                 lines.append(f'        pvpOnly = true,')
+            if s.get("context_tiers"):
+                ct = s["context_tiers"]
+                parts = []
+                for ctx in ["solo", "dungeon", "trial", "pvp"]:
+                    if ctx in ct:
+                        parts.append(f'{ctx} = "{ct[ctx]}"')
+                if parts:
+                    lines.append(f'        contextTiers = {{ {", ".join(parts)} }},')
+            if s.get("stat_contributions"):
+                sc = s["stat_contributions"]
+                parts = [f'{k} = {v}' for k, v in sorted(sc.items())]
+                if parts:
+                    lines.append(f'        statContributions = {{ {", ".join(parts)} }},')
             lines.append(f'    }},')
         lines.append("")
 
