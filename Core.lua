@@ -381,12 +381,24 @@ function SmartGear.ComputeScore(result, role, pvpMode)
 
     local score = 0
 
-    -- === SET TIER SCORING ===
+    -- === SET TIER SCORING (context-aware) ===
     if result.isMetaSet and result.isForCurrentRole then
+        -- Use context-specific tier if available
+        local context = SmartGear.GetContentContext and SmartGear.GetContentContext() or "dungeon"
+        local metaInfo = SmartGear.MetaSets and SmartGear.MetaSets[result.setName]
+        local effectiveTier = result.metaTier  -- base tier
+
+        if metaInfo and metaInfo.contextTiers and metaInfo.contextTiers[context] then
+            effectiveTier = metaInfo.contextTiers[context]
+        end
+
+        result.effectiveTier = effectiveTier  -- store for tooltip
+
         local tierBase = 10
-        if result.metaTier == "S" then tierBase = 40
-        elseif result.metaTier == "A" then tierBase = 30
-        elseif result.metaTier == "B" then tierBase = 20 end
+        if effectiveTier == "S" then tierBase = 40
+        elseif effectiveTier == "A" then tierBase = 30
+        elseif effectiveTier == "B" then tierBase = 20
+        elseif effectiveTier == "C" then tierBase = 5 end
 
         local ratingBonus = 0
         if result.metaRating and result.metaRating > 0 then

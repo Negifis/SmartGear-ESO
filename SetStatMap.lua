@@ -303,6 +303,124 @@ local function PatchSets()
     if sets["Perfected Grand Rejuvenation"] then
         sets["Perfected Grand Rejuvenation"].statContributions = { healingDone = 0.08 }
     end
+
+    -- ================================================================
+    -- CONTEXT-SPECIFIC TIERS
+    -- contextTiers = { solo, dungeon, trial, pvp }
+    -- nil = use base tier, "-" = not relevant for this context
+    -- ================================================================
+
+    -- DD sets: context adjustments
+    local contextData = {
+        -- Pure damage sets: great in group, less in solo
+        ["Ansuul's Torment"]            = { solo = "A", dungeon = "S", trial = "S", pvp = nil },
+        ["Arms of Relequen"]            = { solo = "B", dungeon = "S", trial = "S", pvp = nil },
+        ["Perfected Arms of Relequen"]  = { solo = "B", dungeon = "S", trial = "S", pvp = nil },
+        ["Coral Riptide"]               = { solo = "B", dungeon = "A", trial = "S", pvp = nil },
+        ["Bahsei's Mania"]              = { solo = "B", dungeon = "A", trial = "S", pvp = nil },
+        ["Deadly Strike"]               = { solo = "A", dungeon = "S", trial = "S", pvp = nil },
+        ["Azureblight Reaper"]          = { solo = "A", dungeon = "S", trial = "S", pvp = nil },
+        ["Whorl of the Depths"]         = { solo = "B", dungeon = "A", trial = "S", pvp = nil },
+        ["Perfected Whorl of the Depths"] = { solo = "B", dungeon = "A", trial = "S", pvp = nil },
+        ["Berserking Warrior"]          = { solo = "A", dungeon = "S", trial = "S", pvp = nil },
+        ["War Machine"]                 = { solo = "B", dungeon = "B", trial = "A", pvp = nil },
+
+        -- Accessible/craftable sets
+        ["Order's Wrath"]               = { solo = "S", dungeon = "A", trial = "A", pvp = "C" },
+        ["Hunding's Rage"]              = { solo = "S", dungeon = "A", trial = "B", pvp = "B" },
+        ["Law of Julianos"]             = { solo = "S", dungeon = "A", trial = "B", pvp = "B" },
+        ["New Moon Acolyte"]            = { solo = "A", dungeon = "A", trial = "B", pvp = "A" },
+
+        -- Pen sets: essential solo, useless in trial
+        ["Spriggan's Thorns"]           = { solo = "S", dungeon = "B", trial = "C", pvp = "A" },
+        ["Spinner's Garments"]          = { solo = "S", dungeon = "B", trial = "C", pvp = "A" },
+        ["Night Mother's Gaze"]         = { solo = "A", dungeon = "A", trial = "B", pvp = "B" },
+        ["Twice-Fanged Serpent"]        = { solo = "A", dungeon = "A", trial = "B", pvp = nil },
+
+        -- Solo survival sets
+        ["Ring of the Pale Order"]      = { solo = "S", dungeon = "C", trial = "C", pvp = "C" },
+        ["Briarheart"]                  = { solo = "S", dungeon = "B", trial = "C", pvp = "A" },
+        ["False God's Devotion"]        = { solo = "S", dungeon = "B", trial = "C", pvp = nil },
+        ["Vicious Serpent"]             = { solo = "S", dungeon = "B", trial = "C", pvp = nil },
+
+        -- Crit sets: diminish at cap in trials
+        ["Mother's Sorrow"]             = { solo = "S", dungeon = "S", trial = "A", pvp = "B" },
+        ["Leviathan"]                   = { solo = "S", dungeon = "S", trial = "A", pvp = "B" },
+        ["Tzogvin's Warband"]           = { solo = "A", dungeon = "S", trial = "A", pvp = nil },
+        ["Medusa"]                      = { solo = "A", dungeon = "A", trial = "B", pvp = nil },
+
+        -- Kinras/misc
+        ["Kinras's Wrath"]              = { solo = "B", dungeon = "B", trial = "B", pvp = nil },
+        ["Mechanical Acuity"]           = { solo = "S", dungeon = "B", trial = "B", pvp = "S" },
+        ["Pillar of Nirn"]              = { solo = "A", dungeon = "A", trial = "A", pvp = nil },
+
+        -- Mythics
+        ["Velothi Ur-Mage's Amulet"]    = { solo = "A", dungeon = "S", trial = "S", pvp = "B" },
+        ["Death Dealer's Fete"]          = { solo = "S", dungeon = "A", trial = "A", pvp = "A" },
+        ["Harpooner's Wading Kilt"]      = { solo = "A", dungeon = "S", trial = "S", pvp = "C" },
+        ["Oakensoul Ring"]               = { solo = "S", dungeon = "B", trial = "C", pvp = "A" },
+
+        -- Monster sets context
+        ["Slimecraw"]                    = { solo = "A", dungeon = "S", trial = "S", pvp = "B" },
+        ["Balorgh"]                      = { solo = "B", dungeon = "A", trial = "A", pvp = "S" },
+        ["Kra'gh"]                       = { solo = "S", dungeon = "A", trial = "B", pvp = "A" },
+
+        -- Healer sets
+        ["Spell Power Cure"]             = { solo = "C", dungeon = "S", trial = "A", pvp = nil },
+        ["Olorime"]                      = { solo = "C", dungeon = "A", trial = "S", pvp = nil },
+        ["Vestments of Olorime"]         = { solo = "C", dungeon = "A", trial = "S", pvp = nil },
+        ["Roaring Opportunist"]          = { solo = "C", dungeon = "B", trial = "S", pvp = nil },
+        ["Kagrenac's Hope"]              = { solo = "A", dungeon = "A", trial = "B", pvp = nil },
+        ["Transformative Hope"]          = { solo = "C", dungeon = "S", trial = "S", pvp = nil },
+        ["Pillager's Profit"]            = { solo = "C", dungeon = "A", trial = "S", pvp = nil },
+
+        -- Tank sets
+        ["Claw of Yolnahkriin"]          = { solo = "C", dungeon = "A", trial = "S", pvp = nil },
+        ["Turning Tide"]                 = { solo = "C", dungeon = "A", trial = "S", pvp = nil },
+        ["Saxhleel Champion"]            = { solo = "C", dungeon = "A", trial = "S", pvp = "S" },
+        ["Powerful Assault"]             = { solo = "C", dungeon = "S", trial = "S", pvp = "S" },
+        ["Ebon Armory"]                  = { solo = "C", dungeon = "S", trial = "A", pvp = "B" },
+        ["Torug's Pact"]                 = { solo = "C", dungeon = "S", trial = "S", pvp = "B" },
+    }
+
+    -- Apply context tiers
+    for name, tiers in pairs(contextData) do
+        if sets[name] then
+            sets[name].contextTiers = tiers
+        end
+    end
+
+    -- ================================================================
+    -- PVP-ONLY SETS (not in base MetaSets, add them)
+    -- ================================================================
+    local pvpSets = {
+        ["Rallying Cry"]        = { roles = {"MagDD","StamDD","Healer"}, tier = "C", rating = 10, source = "PvP", notes = "Top PvP set, WSD+resist on heal", contextTiers = { solo = nil, dungeon = nil, trial = nil, pvp = "S" }, statContributions = { weaponDamage = 0.10, resistance = 0.06 } },
+        ["Clever Alchemist"]    = { roles = {"MagDD","StamDD"}, tier = "C", rating = 10, source = "Crafted", notes = "Burst WSD on potion", contextTiers = { solo = "B", dungeon = nil, trial = nil, pvp = "S" }, statContributions = { weaponDamage = 0.14 } },
+        ["Vicious Death"]       = { roles = {"MagDD","StamDD"}, tier = "C", rating = 10, source = "PvP", notes = "AoE bomb on kill", contextTiers = { solo = nil, dungeon = nil, trial = nil, pvp = "S" }, statContributions = { damage = 0.12 } },
+        ["Plaguebreak"]         = { roles = {"MagDD","StamDD"}, tier = "C", rating = 10, source = "PvP", notes = "Anti-purge explosion", contextTiers = { solo = nil, dungeon = nil, trial = nil, pvp = "S" }, statContributions = { damage = 0.12 } },
+        ["Dark Convergence"]    = { roles = {"MagDD"}, tier = "C", rating = 10, source = "PvP", notes = "Pull + AoE bomb", contextTiers = { solo = nil, dungeon = nil, trial = nil, pvp = "S" }, statContributions = { damage = 0.14 } },
+        ["Rush of Agony"]       = { roles = {"StamDD","Tank"}, tier = "C", rating = 10, source = "PvP", notes = "Best CC set, pull on dodge", contextTiers = { solo = nil, dungeon = nil, trial = nil, pvp = "S" }, statContributions = { damage = 0.06, resistance = 0.04 } },
+        ["Daedric Trickery"]    = { roles = {"MagDD","StamDD","Tank"}, tier = "C", rating = 10, source = "Crafted", notes = "Stacking random Major buffs", contextTiers = { solo = "B", dungeon = nil, trial = nil, pvp = "S" }, statContributions = { resistance = 0.06, weaponDamage = 0.04 } },
+        ["Fury"]                = { roles = {"StamDD"}, tier = "C", rating = 10, source = "PvP", notes = "WSD scales with damage taken", contextTiers = { solo = nil, dungeon = nil, trial = nil, pvp = "S" }, statContributions = { weaponDamage = 0.14 } },
+        ["Wretched Vitality"]   = { roles = {"MagDD","StamDD"}, tier = "C", rating = 10, source = "PvP", notes = "Best PvP sustain set", contextTiers = { solo = nil, dungeon = nil, trial = nil, pvp = "S" }, statContributions = { maxResource = 0.08 } },
+        ["Stuhn's Favor"]       = { roles = {"MagDD","StamDD"}, tier = "C", rating = 10, source = "Dungeon", notes = "Pen on off-balance", contextTiers = { solo = "B", dungeon = "B", trial = "C", pvp = "S" }, statContributions = { penetration = 0.12 } },
+        ["Heartland Conqueror"] = { roles = {"MagDD","StamDD"}, tier = "C", rating = 10, source = "Crafted", notes = "Doubles trait effectiveness", contextTiers = { solo = "B", dungeon = nil, trial = nil, pvp = "A" }, statContributions = { penetration = 0.08 } },
+        ["Markyn Ring of Majesty"] = { roles = {"MagDD","StamDD","Tank"}, tier = "C", rating = 10, source = "Mythic", notes = "WSD+resist for 2x5pc", isMythic = true, contextTiers = { solo = nil, dungeon = nil, trial = nil, pvp = "S" }, statContributions = { weaponDamage = 0.08, resistance = 0.08 } },
+        ["Robes of Transmutation"] = { roles = {"Healer"}, tier = "C", rating = 10, source = "PvP", notes = "Crit resist for group", contextTiers = { solo = nil, dungeon = nil, trial = nil, pvp = "S" }, statContributions = { critResist = 0.10 } },
+        ["Essence Thief"]       = { roles = {"StamDD"}, tier = "C", rating = 10, source = "Dungeon", notes = "Melee sustain+dmg", contextTiers = { solo = "A", dungeon = "B", trial = nil, pvp = "S" }, statContributions = { weaponDamage = 0.08, maxResource = 0.06 } },
+    }
+
+    for name, data in pairs(pvpSets) do
+        if not sets[name] then
+            sets[name] = data
+        else
+            -- Merge contextTiers and statContributions into existing
+            sets[name].contextTiers = data.contextTiers
+            if data.statContributions then
+                sets[name].statContributions = data.statContributions
+            end
+        end
+    end
 end
 
 -- Run patching after MetaData.lua loads

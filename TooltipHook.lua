@@ -101,14 +101,21 @@ local function BuildTooltipLines(eval)
 
         -- Meta set info
         if eval.isMetaSet then
+            -- Use context-adjusted tier if available
+            local displayTier = eval.effectiveTier or eval.metaTier
             local tierColor = COLOR_WHITE
-            if eval.metaTier == "S" then tierColor = COLOR_GOLD
-            elseif eval.metaTier == "A" then tierColor = COLOR_GREEN
-            elseif eval.metaTier == "B" then tierColor = COLOR_YELLOW
-            elseif eval.metaTier == "C" then tierColor = COLOR_ORANGE end
+            if displayTier == "S" then tierColor = COLOR_GOLD
+            elseif displayTier == "A" then tierColor = COLOR_GREEN
+            elseif displayTier == "B" then tierColor = COLOR_YELLOW
+            elseif displayTier == "C" then tierColor = COLOR_ORANGE end
 
             local setLine = COLOR_GRAY .. (lang == "ru" and "Мета-сет: " or "Meta set: ")
-            setLine = setLine .. tierColor .. eval.setName .. " (" .. eval.metaTier .. "-tier)" .. COLOR_RESET
+            setLine = setLine .. tierColor .. eval.setName .. " (" .. displayTier .. "-tier)" .. COLOR_RESET
+
+            -- Show base tier if different from context tier
+            if eval.effectiveTier and eval.metaTier and eval.effectiveTier ~= eval.metaTier then
+                setLine = setLine .. COLOR_GRAY .. " [" .. eval.metaTier .. "]" .. COLOR_RESET
+            end
 
             if eval.isForCurrentRole then
                 setLine = setLine .. COLOR_GREEN .. " (+)" .. COLOR_RESET
