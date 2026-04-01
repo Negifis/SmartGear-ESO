@@ -122,6 +122,13 @@ function SmartGear.ShowAlert(alertData)
             scoreText = scoreText .. table.concat(details, ", ")
         end
     end
+
+    -- Target build indicator
+    if alertData.isTargetNeed then
+        scoreText = scoreText .. " |c00DDFF"
+            .. (lang == "ru" and ">> ЦЕЛЕВОЙ СЕТ!" or ">> TARGET SET!")
+            .. "|r"
+    end
     scoreLabel:SetText(scoreText)
 
     -- Icon
@@ -228,9 +235,21 @@ local function ScanBagForUpgrades()
             local itemType = GetItemLinkItemType(itemLink)
             if itemType == ITEMTYPE_ARMOR or itemType == ITEMTYPE_WEAPON then
                 local comp = SmartGear.CompareWithEquipped(bagId, slotIndex)
-                if comp and comp.isUpgrade and comp.scoreDiff >= MIN_SCORE_DIFF then
-                    -- Only keep upgrades, not for items on cooldown
-                    if not bestUpgrade or comp.scoreDiff > bestUpgrade.scoreDiff then
+
+                -- Target build override: if item is from active target build
+                -- and we still need pieces, always treat as upgrade
+                local isTargetNeed = false
+                if comp and SmartGear.ActiveBuild and comp.newEval then
+                    local tbMatch = comp.newEval.targetBuildMatch
+                    if tbMatch and tbMatch.isTargetSet and tbMatch.needMore then
+                        isTargetNeed = true
+                    end
+                end
+
+                local meetsThreshold = comp and comp.isUpgrade and comp.scoreDiff >= MIN_SCORE_DIFF
+                if comp and (meetsThreshold or isTargetNeed) then
+                    local effectiveDiff = isTargetNeed and math.max(comp.scoreDiff, 10) or comp.scoreDiff
+                    if not bestUpgrade or effectiveDiff > (bestUpgrade.scoreDiff or 0) then
                         bestUpgrade = {
                             bagId = bagId,
                             slotIndex = slotIndex,
@@ -238,10 +257,11 @@ local function ScanBagForUpgrades()
                             itemLink = itemLink,
                             equippedName = comp.equippedName,
                             equippedLink = comp.equippedLink,
-                            scoreDiff = comp.scoreDiff,
+                            scoreDiff = effectiveDiff,
                             slotLabel = comp.slotLabel,
                             changes = comp.changes,
-                            verdict = comp.verdict,
+                            verdict = isTargetNeed and "target_upgrade" or comp.verdict,
+                            isTargetNeed = isTargetNeed,
                         }
                     end
                 end
