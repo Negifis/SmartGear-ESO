@@ -37,6 +37,11 @@ local activateBtn, deactivateBtn
 -- Filter button controls
 local filterBtns = {}
 
+-- Localization helper
+local function L(en, ru)
+    return (SmartGear.currentLang == "ru") and ru or en
+end
+
 -- Role colors for list
 local ROLE_COLORS = {
     MagDD  = {0.3, 0.6, 1.0},   -- blue
@@ -230,7 +235,13 @@ local function InitUI()
 
     -- Create backgrounds (after all refs are resolved)
     local header = browser:GetNamedChild("Header")
-    if header then MakeBG(header, 0, 0.12, 0, 0.95) end
+    if header then
+        MakeBG(header, 0, 0.12, 0, 0.95)
+        local headerTitle = header:GetNamedChild("Title")
+        if headerTitle then
+            headerTitle:SetText(L("SmartGear -- Target Build", "SmartGear -- Целевая сборка"))
+        end
+    end
     MakeBG(rightPanel, 0.06, 0.06, 0.06, 0.7)
     MakeBG(activateBtn, 0, 0.35, 0, 0.9)
     MakeBG(deactivateBtn, 0.35, 0.12, 0, 0.9)
@@ -498,15 +509,22 @@ function SmartGear.ShowBuildDetails(buildId)
     elseif overall >= 50 then progressLabel:SetColor(1, 1, 0, 1)
     else progressLabel:SetColor(1, 0.5, 0, 1) end
 
-    -- Slot name lookup
+    -- Slot name lookup (localized)
     local SLOT_NAMES_SHORT = {
-        [EQUIP_SLOT_HEAD] = "Head", [EQUIP_SLOT_SHOULDERS] = "Shldr",
-        [EQUIP_SLOT_CHEST] = "Chest", [EQUIP_SLOT_WAIST] = "Waist",
-        [EQUIP_SLOT_LEGS] = "Legs", [EQUIP_SLOT_FEET] = "Feet",
-        [EQUIP_SLOT_HAND] = "Hands", [EQUIP_SLOT_NECK] = "Neck",
-        [EQUIP_SLOT_RING1] = "Ring1", [EQUIP_SLOT_RING2] = "Ring2",
-        [EQUIP_SLOT_MAIN_HAND] = "MH", [EQUIP_SLOT_OFF_HAND] = "OH",
-        [EQUIP_SLOT_BACKUP_MAIN] = "BkMH", [EQUIP_SLOT_BACKUP_OFF] = "BkOH",
+        [EQUIP_SLOT_HEAD]        = L("Head",  "Голова"),
+        [EQUIP_SLOT_SHOULDERS]   = L("Shldr", "Плечи"),
+        [EQUIP_SLOT_CHEST]       = L("Chest", "Грудь"),
+        [EQUIP_SLOT_WAIST]       = L("Waist", "Пояс"),
+        [EQUIP_SLOT_LEGS]        = L("Legs",  "Ноги"),
+        [EQUIP_SLOT_FEET]        = L("Feet",  "Ступни"),
+        [EQUIP_SLOT_HAND]        = L("Hands", "Руки"),
+        [EQUIP_SLOT_NECK]        = L("Neck",  "Шея"),
+        [EQUIP_SLOT_RING1]       = L("Ring1", "Кольцо1"),
+        [EQUIP_SLOT_RING2]       = L("Ring2", "Кольцо2"),
+        [EQUIP_SLOT_MAIN_HAND]   = L("MH",    "Осн"),
+        [EQUIP_SLOT_OFF_HAND]    = L("OH",    "Лев"),
+        [EQUIP_SLOT_BACKUP_MAIN] = L("BkMH",  "Зап"),
+        [EQUIP_SLOT_BACKUP_OFF]  = L("BkOH",  "ЗапЛ"),
     }
 
     -- Fill detail rows with per-slot data
@@ -525,7 +543,7 @@ function SmartGear.ShowBuildDetails(buildId)
 
             -- Score as text
             if d_info and d_info.empty then
-                row._countLabel:SetText("EMPTY")
+                row._countLabel:SetText(L("EMPTY", "ПУСТО"))
                 row._countLabel:SetColor(1, 0, 0, 1)
             else
                 row._countLabel:SetText(sr.score .. "%")
@@ -597,7 +615,7 @@ function SmartGear.ToggleBuildBrowser()
             noBuildLabel:SetText(
                 SmartGear.currentLang == "ru"
                     and "Выберите сборку из списка"
-                    or "Select a build from the list"
+                    or  "Select a build from the list"
             )
         end
     else

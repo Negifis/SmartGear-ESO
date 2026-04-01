@@ -347,7 +347,7 @@ local function BuildTooltipLines(eval)
             local tbColor = eval.targetBuildScore > 0 and COLOR_GREEN or COLOR_RED
             local tbSign = eval.targetBuildScore > 0 and "+" or ""
             table.insert(lines, {
-                text = COLOR_CYAN .. "  Target: "
+                text = COLOR_CYAN .. "  " .. (lang == "ru" and "Цель: " or "Target: ")
                     .. tbColor .. tbSign .. eval.targetBuildScore .. COLOR_RESET,
             })
         end

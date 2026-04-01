@@ -276,7 +276,8 @@ function SmartGear.ActivateBuild(buildId)
         if SmartGear.savedVars then
             SmartGear.savedVars.activeBuildId = nil
         end
-        d("|c00FF00[SmartGear]|r Target build deactivated.")
+        local lang = SmartGear.currentLang or "en"
+        d("|c00FF00[SmartGear]|r " .. (lang == "ru" and "Целевая сборка деактивирована." or "Target build deactivated."))
         return
     end
 
@@ -289,7 +290,7 @@ function SmartGear.ActivateBuild(buildId)
     end
 
     if not build then
-        d("|c00FF00[SmartGear]|r Build not found: " .. tostring(buildId))
+        d("|c00FF00[SmartGear]|r " .. (lang == "ru" and "Сборка не найдена: " or "Build not found: ") .. tostring(buildId))
         return
     end
 
@@ -330,7 +331,7 @@ function SmartGear.ActivateBuild(buildId)
 
     local lang = SmartGear.currentLang or "en"
     local name = lang == "ru" and (build.nameRu or build.name) or build.name
-    d("|c00FF00[SmartGear]|r Target: |cFFFF00" .. (name or buildId) .. "|r")
+    d("|c00FF00[SmartGear]|r " .. (lang == "ru" and "Цель: " or "Target: ") .. "|cFFFF00" .. (name or buildId) .. "|r")
     SmartGear.ShowBuildProgress()
 end
 
@@ -360,7 +361,8 @@ local SLOT_NAMES = {
 function SmartGear.ShowBuildProgress()
     local build = SmartGear.ActiveBuild
     if not build then
-        d("|c00FF00[SmartGear]|r No target build active.")
+        local lang = SmartGear.currentLang or "en"
+        d("|c00FF00[SmartGear]|r " .. (lang == "ru" and "Нет активной целевой сборки." or "No target build active."))
         return
     end
 
@@ -400,6 +402,7 @@ end
 function SmartGear.ListBuilds()
     local lang = SmartGear.currentLang or "en"
     d("|c00FF00[SmartGear]|r " .. (lang == "ru" and "Доступные сборки:" or "Available builds:"))
+    d("  " .. (lang == "ru" and "(используй /smartgear builds для окна)" or "(use /smartgear builds for browser)"))
 
     local count = 0
     if SmartGear.PreBuilds then
@@ -422,6 +425,6 @@ function SmartGear.ListBuilds()
         end
     end
     if count == 0 then
-        d("  " .. (lang == "ru" and "(нет)" or "(none)"))
+        d("  " .. (lang == "ru" and "(нет доступных)" or "(none available)"))
     end
 end
