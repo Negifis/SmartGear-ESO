@@ -222,25 +222,18 @@ local function InitUI()
     searchBox = leftPanel:GetNamedChild("SearchBox")
     filtersParent = leftPanel:GetNamedChild("Filters")
 
-    -- Header bg
-    local header = browser:GetNamedChild("Header")
-    if header then MakeBG(header, 0, 0.12, 0, 0.95) end
-
-    -- Right panel bg
-    MakeBG(rightPanel, 0.06, 0.06, 0.06, 0.7)
-
-    -- Search box bg
-    MakeBG(searchBox, 0.1, 0.1, 0.1, 0.85)
-
-    -- Button backgrounds
-    MakeBG(activateBtn, 0, 0.35, 0, 0.9)
-    MakeBG(deactivateBtn, 0.35, 0.12, 0, 0.9)
-
     buildNameLabel = rightPanel:GetNamedChild("BuildName")
     roleCtxLabel = rightPanel:GetNamedChild("RoleCtx")
     progressLabel = rightPanel:GetNamedChild("Progress")
     activateBtn = rightPanel:GetNamedChild("ActivateBtn")
     deactivateBtn = rightPanel:GetNamedChild("DeactivateBtn")
+
+    -- Create backgrounds (after all refs are resolved)
+    local header = browser:GetNamedChild("Header")
+    if header then MakeBG(header, 0, 0.12, 0, 0.95) end
+    MakeBG(rightPanel, 0.06, 0.06, 0.06, 0.7)
+    MakeBG(activateBtn, 0, 0.35, 0, 0.9)
+    MakeBG(deactivateBtn, 0.35, 0.12, 0, 0.9)
 
     -- Activate/Deactivate handlers
     activateBtn:SetHandler("OnClicked", function()
