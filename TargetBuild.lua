@@ -52,11 +52,9 @@ local function CreateBuildRow(parent, index)
     row:SetAnchor(TOPLEFT, parent, TOPLEFT, 0, (index - 1) * ROW_HEIGHT)
     row:SetMouseEnabled(true)
 
-    local bg = WINDOW_MANAGER:CreateControl(nil, row, CT_BACKDROP)
+    local bg = WINDOW_MANAGER:CreateControl(nil, row, CT_TEXTURE)
     bg:SetAnchorFill(row)
-    bg:SetCenterColor(0.08, 0.08, 0.08, 0.6)
-    bg:SetEdgeColor(0.15, 0.15, 0.15, 0.3)
-    bg:SetEdgeTexture("", 1, 1, 1)
+    bg:SetColor(0.08, 0.08, 0.08, 0.6)
     row._bg = bg
 
     -- Role dot
@@ -90,14 +88,14 @@ local function CreateBuildRow(parent, index)
 
     -- Hover
     row:SetHandler("OnMouseEnter", function()
-        bg:SetCenterColor(0.12, 0.18, 0.12, 0.8)
+        bg:SetColor(0.12, 0.18, 0.12, 0.8)
     end)
     row:SetHandler("OnMouseExit", function()
         local sel = selectedBuildId == row._buildId
         if sel then
-            bg:SetCenterColor(0.1, 0.2, 0.1, 0.8)
+            bg:SetColor(0.1, 0.2, 0.1, 0.8)
         else
-            bg:SetCenterColor(0.08, 0.08, 0.08, 0.6)
+            bg:SetColor(0.08, 0.08, 0.08, 0.6)
         end
     end)
 
@@ -362,9 +360,9 @@ function SmartGear.RenderBuildRows()
             end
 
             if isSelected then
-                row._bg:SetCenterColor(0.1, 0.2, 0.1, 0.8)
+                row._bg:SetColor(0.1, 0.2, 0.1, 0.8)
             else
-                row._bg:SetCenterColor(0.08, 0.08, 0.08, 0.6)
+                row._bg:SetColor(0.08, 0.08, 0.08, 0.6)
             end
 
             row._buildId = data.id

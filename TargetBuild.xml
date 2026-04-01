@@ -9,21 +9,20 @@
 
             <Controls>
                 <!-- Dark background -->
-                <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
+                <Texture name="$(parent)BG">
                     <AnchorFill />
-                    <Center r="0.04" g="0.04" b="0.04" a="0.92" />
-                    <Edge edgeSize="2" />
-                </Backdrop>
+                    <Color r="0.04" g="0.04" b="0.04" a="0.94" />
+                </Texture>
 
                 <!-- Header bar -->
                 <Control name="$(parent)Header">
                     <Dimensions x="720" y="32" />
                     <Anchor point="TOPLEFT" />
                     <Controls>
-                        <Backdrop name="$(parent)BG">
+                        <Texture name="$(parent)BG">
                             <AnchorFill />
-                            <Center r="0" g="0.12" b="0" a="0.95" />
-                        </Backdrop>
+                            <Color r="0" g="0.12" b="0" a="0.95" />
+                        </Texture>
                         <Label name="$(parent)Title" font="ZoFontWinH4" color="00FF00"
                                horizontalAlignment="CENTER" verticalAlignment="CENTER"
                                text="SmartGear -- Target Build">
@@ -52,12 +51,11 @@
 
                     <Controls>
                         <!-- Search box background -->
-                        <Backdrop name="$(parent)SearchBG">
+                        <Texture name="$(parent)SearchBG">
                             <Dimensions x="258" y="24" />
                             <Anchor point="TOPLEFT" offsetX="0" offsetY="0" />
-                            <Center r="0.1" g="0.1" b="0.1" a="0.8" />
-                            <Edge edgeSize="1" />
-                        </Backdrop>
+                            <Color r="0.1" g="0.1" b="0.1" a="0.85" />
+                        </Texture>
 
                         <!-- Search input -->
                         <EditBox name="$(parent)SearchBox" mouseEnabled="true"
@@ -88,10 +86,10 @@
                     <Anchor point="TOPRIGHT" offsetX="-8" offsetY="38" />
 
                     <Controls>
-                        <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
+                        <Texture name="$(parent)BG">
                             <AnchorFill />
-                            <Center r="0.06" g="0.06" b="0.06" a="0.7" />
-                        </Backdrop>
+                            <Color r="0.06" g="0.06" b="0.06" a="0.7" />
+                        </Texture>
 
                         <Label name="$(parent)BuildName" font="ZoFontWinH3" color="FFFFFF"
                                horizontalAlignment="LEFT" verticalAlignment="TOP"
@@ -123,10 +121,10 @@
                             <Dimensions x="150" y="32" />
                             <Anchor point="BOTTOMLEFT" offsetX="10" offsetY="-8" />
                             <Controls>
-                                <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
+                                <Texture name="$(parent)BG">
                                     <AnchorFill />
-                                    <Center r="0" g="0.35" b="0" a="0.9" />
-                                </Backdrop>
+                                    <Color r="0" g="0.35" b="0" a="0.9" />
+                                </Texture>
                                 <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
                                        horizontalAlignment="CENTER" verticalAlignment="CENTER"
                                        text="ACTIVATE">
@@ -139,10 +137,10 @@
                             <Dimensions x="150" y="32" />
                             <Anchor point="BOTTOMLEFT" offsetX="170" offsetY="-8" />
                             <Controls>
-                                <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
+                                <Texture name="$(parent)BG">
                                     <AnchorFill />
-                                    <Center r="0.35" g="0.12" b="0" a="0.9" />
-                                </Backdrop>
+                                    <Color r="0.35" g="0.12" b="0" a="0.9" />
+                                </Texture>
                                 <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
                                        horizontalAlignment="CENTER" verticalAlignment="CENTER"
                                        text="DEACTIVATE">
