@@ -34,6 +34,23 @@ ROLE_PATTERNS = [
     (re.compile(r"2h\s+stam|bow\s+", re.I), "StamDD"),
 ]
 
+# Class detection from URL/title
+CLASS_PATTERNS = [
+    (re.compile(r"dragonknight|dragon.knight|\bdk\b", re.I), "Dragonknight"),
+    (re.compile(r"sorcerer|\bsorc\b", re.I), "Sorcerer"),
+    (re.compile(r"nightblade|\bnb\b|stamblade|magblade", re.I), "Nightblade"),
+    (re.compile(r"warden", re.I), "Warden"),
+    (re.compile(r"necromancer|necro\b", re.I), "Necromancer"),
+    (re.compile(r"templar|\btemplar\b|stamplar|magplar", re.I), "Templar"),
+    (re.compile(r"arcanist", re.I), "Arcanist"),
+]
+
+# ESO class ID mapping (for addon-side filtering)
+CLASS_IDS = {
+    "Dragonknight": 1, "Sorcerer": 2, "Nightblade": 3,
+    "Warden": 4, "Necromancer": 5, "Templar": 6, "Arcanist": 117,
+}
+
 # Content context detection from URL/title
 CONTEXT_PATTERNS = [
     (re.compile(r"solo|maelstrom|vateshran|overland|one.?bar", re.I), "solo"),
@@ -94,8 +111,16 @@ def _detect_context(url, title):
     for pattern, context in CONTEXT_PATTERNS:
         if pattern.search(text):
             return context
-    # Default: group PvE (dungeon/trial builds are most common)
     return "group"
+
+
+def _detect_class(url, title):
+    """Detect ESO class from build URL/title."""
+    text = f"{url} {title}"
+    for pattern, cls in CLASS_PATTERNS:
+        if pattern.search(text):
+            return cls
+    return None  # unknown class
 
 
 def _get_build_links(html):
@@ -618,6 +643,8 @@ def _extract_builds_from_page(html, url, title, role):
             "context": table_ctx,
             "source": "alcast",
             "sourceUrl": url,
+            "className": _detect_class(url, title),
+            "classId": CLASS_IDS.get(_detect_class(url, title)),
             "slots": slots,
         })
 

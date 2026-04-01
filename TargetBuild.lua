@@ -20,6 +20,7 @@ local filteredBuilds = {}
 local searchText = ""
 local filterRole = "all"    -- "all", "MagDD", "StamDD", "Tank", "Healer"
 local filterCtx = "all"     -- "all", "solo", "group", "trial", "pvp"
+local filterMyClass = true   -- true = show only current class builds
 
 -- Layout constants
 local ROW_HEIGHT = 30
@@ -268,6 +269,35 @@ local function InitUI()
         table.insert(filterBtns, btn)
     end
 
+    -- Class toggle button (below filters)
+    local classToggle = WINDOW_MANAGER:CreateControl("SGClassToggle", filtersParent, CT_LABEL)
+    classToggle:SetFont("ZoFontGameSmall")
+    classToggle:SetDimensions(50, 20)
+    classToggle:SetAnchor(LEFT, filtersParent, LEFT, 215, 0)
+    classToggle:SetHorizontalAlignment(TEXT_ALIGN_CENTER)
+    classToggle:SetVerticalAlignment(TEXT_ALIGN_CENTER)
+    classToggle:SetMouseEnabled(true)
+    classToggle:SetText("[Cls]")
+    classToggle:SetColor(0, 1, 0, 1)
+
+    classToggle:SetHandler("OnMouseUp", function()
+        filterMyClass = not filterMyClass
+        scrollOffset = 0
+        if filterMyClass then
+            classToggle:SetColor(0, 1, 0, 1)
+            classToggle:SetText("[Cls]")
+        else
+            classToggle:SetColor(0.5, 0.5, 0.5, 1)
+            classToggle:SetText("[All]")
+        end
+        SmartGear.RefreshBuildList()
+    end)
+    classToggle:SetHandler("OnMouseEnter", function() classToggle:SetColor(1, 1, 1, 1) end)
+    classToggle:SetHandler("OnMouseExit", function()
+        if filterMyClass then classToggle:SetColor(0, 1, 0, 1)
+        else classToggle:SetColor(0.5, 0.5, 0.5, 1) end
+    end)
+
     -- Create row pools
     for i = 1, MAX_VISIBLE_ROWS do
         buildRows[i] = CreateBuildRow(listParent, i)
@@ -313,6 +343,9 @@ function SmartGear.CollectFilteredBuilds()
         end
     end
 
+    -- Get player class for filtering
+    local playerClassId = GetUnitClassId("player")
+
     -- Apply filters
     local filtered = {}
     local searchLower = string.lower(searchText)
@@ -322,8 +355,11 @@ function SmartGear.CollectFilteredBuilds()
         local name = lang == "ru" and (b.nameRu or b.name) or b.name
         local nameLower = string.lower(name or "")
 
+        -- Class filter (default ON — only show builds for your class)
+        if filterMyClass and b.classId and b.classId ~= playerClassId then
+            -- skip: wrong class
         -- Role filter
-        if filterRole ~= "all" and b.role ~= filterRole then
+        elseif filterRole ~= "all" and b.role ~= filterRole then
             -- skip
         -- Search filter
         elseif searchLower ~= "" and not string.find(nameLower, searchLower, 1, true) then

@@ -372,11 +372,18 @@ def generate_build_database(builds, output_path):
         context = build.get("context", "group")
         source = _escape_lua_string(build.get("source", "alcast"))
 
+        className = build.get("className") or ""
+        classId = build.get("classId")
+
         lines.append(f'SmartGear.PreBuilds["{bid}"] = {{')
         lines.append(f'    name = "{name}",')
         lines.append(f'    role = "{role}",')
         lines.append(f'    context = "{context}",')
         lines.append(f'    source = "{source}",')
+        if className:
+            lines.append(f'    className = "{_escape_lua_string(className)}",')
+        if classId:
+            lines.append(f'    classId = {classId},')
         lines.append(f'    slots = {{')
 
         slots = build.get("slots", {})
