@@ -54,6 +54,7 @@ local function CreateBuildRow(parent, index)
 
     local bg = WINDOW_MANAGER:CreateControl(nil, row, CT_TEXTURE)
     bg:SetAnchorFill(row)
+    bg:SetTexture("EsoUI/Art/Miscellaneous/single_pixel.dds")
     bg:SetColor(0.08, 0.08, 0.08, 0.6)
     row._bg = bg
 
