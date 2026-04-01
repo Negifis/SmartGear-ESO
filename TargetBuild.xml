@@ -4,24 +4,25 @@
         <TopLevelControl name="SmartGearBuildBrowser" hidden="true" movable="true"
                          clampedToScreen="true" mouseEnabled="true"
                          layer="OVERLAY" level="50">
-            <Dimensions x="680" y="520" />
+            <Dimensions x="720" y="560" />
             <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" />
 
             <Controls>
-                <!-- Background -->
+                <!-- Dark background -->
                 <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
                     <AnchorFill />
+                    <Center r="0.04" g="0.04" b="0.04" a="0.92" />
                     <Edge edgeSize="2" />
                 </Backdrop>
 
                 <!-- Header bar -->
                 <Control name="$(parent)Header">
-                    <Dimensions x="680" y="32" />
+                    <Dimensions x="720" y="32" />
                     <Anchor point="TOPLEFT" />
                     <Controls>
                         <Backdrop name="$(parent)BG">
                             <AnchorFill />
-                            <Center r="0" g="0.15" b="0" a="0.9" />
+                            <Center r="0" g="0.12" b="0" a="0.95" />
                         </Backdrop>
                         <Label name="$(parent)Title" font="ZoFontWinH4" color="00FF00"
                                horizontalAlignment="CENTER" verticalAlignment="CENTER"
@@ -44,33 +45,52 @@
                     </Controls>
                 </Button>
 
-                <!-- LEFT PANEL: Build list container -->
+                <!-- LEFT PANEL -->
                 <Control name="$(parent)LeftPanel">
-                    <Dimensions x="220" y="470" />
-                    <Anchor point="TOPLEFT" offsetX="8" offsetY="40" />
+                    <Dimensions x="260" y="510" />
+                    <Anchor point="TOPLEFT" offsetX="8" offsetY="38" />
+
                     <Controls>
-                        <Label name="$(parent)FilterLabel" font="ZoFontGameBold" color="AAAAAA"
-                               text="Builds:" horizontalAlignment="LEFT">
-                            <Dimensions x="220" y="20" />
-                            <Anchor point="TOPLEFT" />
-                        </Label>
-                        <!-- Rows created dynamically in Lua -->
-                        <Control name="$(parent)List">
-                            <Dimensions x="220" y="440" />
-                            <Anchor point="TOPLEFT" offsetY="24" />
+                        <!-- Search box background -->
+                        <Backdrop name="$(parent)SearchBG">
+                            <Dimensions x="258" y="24" />
+                            <Anchor point="TOPLEFT" offsetX="0" offsetY="0" />
+                            <Center r="0.1" g="0.1" b="0.1" a="0.8" />
+                            <Edge edgeSize="1" />
+                        </Backdrop>
+
+                        <!-- Search input -->
+                        <EditBox name="$(parent)SearchBox" mouseEnabled="true"
+                                 font="ZoFontGame" maxInputChars="40"
+                                 multiLine="false" newLineEnabled="false"
+                                 editEnabled="true" selectAllOnFocus="true">
+                            <Dimensions x="254" y="22" />
+                            <Anchor point="TOPLEFT" offsetX="2" offsetY="1" />
+                        </EditBox>
+
+                        <!-- Filter buttons row -->
+                        <Control name="$(parent)Filters">
+                            <Dimensions x="258" y="22" />
+                            <Anchor point="TOPLEFT" offsetX="0" offsetY="28" />
+                        </Control>
+
+                        <!-- Build list container (scrollable via mouse wheel) -->
+                        <Control name="$(parent)List" mouseEnabled="true">
+                            <Dimensions x="258" y="450" />
+                            <Anchor point="TOPLEFT" offsetX="0" offsetY="54" />
                         </Control>
                     </Controls>
                 </Control>
 
-                <!-- RIGHT PANEL: Build details -->
-                <Control name="$(parent)RightPanel">
-                    <Dimensions x="430" y="470" />
-                    <Anchor point="TOPRIGHT" offsetX="-8" offsetY="40" />
+                <!-- RIGHT PANEL -->
+                <Control name="$(parent)RightPanel" hidden="true">
+                    <Dimensions x="430" y="510" />
+                    <Anchor point="TOPRIGHT" offsetX="-8" offsetY="38" />
 
                     <Controls>
                         <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
                             <AnchorFill />
-                            <Center r="0.05" g="0.05" b="0.05" a="0.6" />
+                            <Center r="0.06" g="0.06" b="0.06" a="0.7" />
                         </Backdrop>
 
                         <Label name="$(parent)BuildName" font="ZoFontWinH3" color="FFFFFF"
@@ -92,20 +112,20 @@
                             <Anchor point="TOPLEFT" offsetX="10" offsetY="58" />
                         </Label>
 
-                        <!-- Set details container (rows created in Lua) -->
+                        <!-- Set details container -->
                         <Control name="$(parent)SetList">
-                            <Dimensions x="410" y="320" />
+                            <Dimensions x="410" y="350" />
                             <Anchor point="TOPLEFT" offsetX="10" offsetY="84" />
                         </Control>
 
                         <!-- Activate button -->
                         <Button name="$(parent)ActivateBtn" mouseEnabled="true">
-                            <Dimensions x="140" y="32" />
+                            <Dimensions x="150" y="32" />
                             <Anchor point="BOTTOMLEFT" offsetX="10" offsetY="-8" />
                             <Controls>
                                 <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
                                     <AnchorFill />
-                                    <Center r="0" g="0.4" b="0" a="0.9" />
+                                    <Center r="0" g="0.35" b="0" a="0.9" />
                                 </Backdrop>
                                 <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
                                        horizontalAlignment="CENTER" verticalAlignment="CENTER"
@@ -115,14 +135,13 @@
                             </Controls>
                         </Button>
 
-                        <!-- Deactivate button -->
                         <Button name="$(parent)DeactivateBtn" mouseEnabled="true" hidden="true">
-                            <Dimensions x="140" y="32" />
-                            <Anchor point="BOTTOMLEFT" offsetX="160" offsetY="-8" />
+                            <Dimensions x="150" y="32" />
+                            <Anchor point="BOTTOMLEFT" offsetX="170" offsetY="-8" />
                             <Controls>
                                 <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
                                     <AnchorFill />
-                                    <Center r="0.4" g="0.15" b="0" a="0.9" />
+                                    <Center r="0.35" g="0.12" b="0" a="0.9" />
                                 </Backdrop>
                                 <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
                                        horizontalAlignment="CENTER" verticalAlignment="CENTER"
@@ -134,12 +153,12 @@
                     </Controls>
                 </Control>
 
-                <!-- Placeholder when no build selected -->
-                <Label name="$(parent)NoBuildLabel" font="ZoFontGame" color="666666"
+                <!-- No build selected placeholder -->
+                <Label name="$(parent)NoBuildLabel" font="ZoFontGame" color="555555"
                        horizontalAlignment="CENTER" verticalAlignment="CENTER"
-                       text="Select a build from the list" hidden="true">
-                    <Dimensions x="430" y="470" />
-                    <Anchor point="TOPRIGHT" offsetX="-8" offsetY="40" />
+                       text="">
+                    <Dimensions x="430" y="510" />
+                    <Anchor point="TOPRIGHT" offsetX="-8" offsetY="38" />
                 </Label>
             </Controls>
         </TopLevelControl>

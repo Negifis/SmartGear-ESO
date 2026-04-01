@@ -1,67 +1,104 @@
 ----------------------------------------------------------------------
 -- SmartGear — Target Build Browser UI
--- Simple implementation using direct control creation.
+-- Full-featured: scroll, search, filter by role/context, grouping.
 ----------------------------------------------------------------------
 SmartGear = SmartGear or {}
 
 local isInitialized = false
 local selectedBuildId = nil
-local buildRows = {}    -- left panel row controls
-local detailRows = {}   -- right panel detail controls
+
+-- Row pools
+local buildRows = {}
+local detailRows = {}
+
+-- Scroll state
+local scrollOffset = 0
+local filteredBuilds = {}
+
+-- Filter state
+local searchText = ""
+local filterRole = "all"    -- "all", "MagDD", "StamDD", "Tank", "Healer"
+local filterCtx = "all"     -- "all", "solo", "group", "trial", "pvp"
+
+-- Layout constants
+local ROW_HEIGHT = 30
+local DETAIL_ROW_HEIGHT = 26
+local MAX_VISIBLE_ROWS = 14
+local MAX_DETAIL_ROWS = 12
 
 -- UI refs
 local browser, leftPanel, rightPanel, noBuildLabel
+local listParent, searchBox, filtersParent
 local buildNameLabel, roleCtxLabel, progressLabel
 local activateBtn, deactivateBtn
 
-local ROW_HEIGHT = 32
-local DETAIL_ROW_HEIGHT = 26
-local MAX_BUILD_ROWS = 12
-local MAX_DETAIL_ROWS = 10
+-- Filter button controls
+local filterBtns = {}
+
+-- Role colors for list
+local ROLE_COLORS = {
+    MagDD  = {0.3, 0.6, 1.0},   -- blue
+    StamDD = {0.3, 1.0, 0.3},   -- green
+    Tank   = {1.0, 0.7, 0.3},   -- orange
+    Healer = {1.0, 1.0, 0.5},   -- yellow
+}
 
 ----------------------------------------------------------------------
--- Create a clickable row for the build list
+-- Create a build row control
 ----------------------------------------------------------------------
 local function CreateBuildRow(parent, index)
-    local row = WINDOW_MANAGER:CreateControl("SmartGearBuildRow" .. index, parent, CT_CONTROL)
-    row:SetDimensions(210, ROW_HEIGHT)
+    local row = WINDOW_MANAGER:CreateControl("SGBRow" .. index, parent, CT_CONTROL)
+    row:SetDimensions(250, ROW_HEIGHT)
     row:SetAnchor(TOPLEFT, parent, TOPLEFT, 0, (index - 1) * ROW_HEIGHT)
     row:SetMouseEnabled(true)
 
-    -- Background
     local bg = WINDOW_MANAGER:CreateControl(nil, row, CT_BACKDROP)
     bg:SetAnchorFill(row)
-    bg:SetCenterColor(0.1, 0.1, 0.1, 0.5)
-    bg:SetEdgeColor(0.2, 0.2, 0.2, 0.3)
+    bg:SetCenterColor(0.08, 0.08, 0.08, 0.6)
+    bg:SetEdgeColor(0.15, 0.15, 0.15, 0.3)
     bg:SetEdgeTexture("", 1, 1, 1)
     row._bg = bg
 
+    -- Role dot
+    local dot = WINDOW_MANAGER:CreateControl(nil, row, CT_BACKDROP)
+    dot:SetDimensions(6, 6)
+    dot:SetAnchor(LEFT, row, LEFT, 4, 0)
+    dot:SetCenterColor(1, 1, 1, 1)
+    dot:SetEdgeColor(0, 0, 0, 0)
+    dot:SetEdgeTexture("", 1, 1, 0)
+    row._dot = dot
+
     -- Name label
     local name = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
-    name:SetFont("ZoFontGame")
-    name:SetColor(0.85, 0.85, 0.85, 1)
-    name:SetAnchor(LEFT, row, LEFT, 6, 0)
-    name:SetDimensions(175, ROW_HEIGHT)
+    name:SetFont("ZoFontGameSmall")
+    name:SetColor(0.8, 0.8, 0.8, 1)
+    name:SetAnchor(LEFT, row, LEFT, 14, 0)
+    name:SetDimensions(200, ROW_HEIGHT)
     name:SetHorizontalAlignment(TEXT_ALIGN_LEFT)
     name:SetVerticalAlignment(TEXT_ALIGN_CENTER)
     row._nameLabel = name
 
-    -- Source tag
-    local src = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
-    src:SetFont("ZoFontGameSmall")
-    src:SetColor(0.5, 0.5, 0.5, 1)
-    src:SetAnchor(RIGHT, row, RIGHT, -4, 0)
-    src:SetDimensions(30, ROW_HEIGHT)
-    src:SetHorizontalAlignment(TEXT_ALIGN_RIGHT)
-    src:SetVerticalAlignment(TEXT_ALIGN_CENTER)
-    row._srcLabel = src
+    -- Context tag
+    local ctx = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
+    ctx:SetFont("ZoFontGameSmall")
+    ctx:SetColor(0.4, 0.4, 0.4, 1)
+    ctx:SetAnchor(RIGHT, row, RIGHT, -4, 0)
+    ctx:SetDimensions(40, ROW_HEIGHT)
+    ctx:SetHorizontalAlignment(TEXT_ALIGN_RIGHT)
+    ctx:SetVerticalAlignment(TEXT_ALIGN_CENTER)
+    row._ctxLabel = ctx
 
-    -- Hover handlers
+    -- Hover
     row:SetHandler("OnMouseEnter", function()
-        bg:SetCenterColor(0.2, 0.25, 0.2, 0.7)
+        bg:SetCenterColor(0.12, 0.18, 0.12, 0.8)
     end)
     row:SetHandler("OnMouseExit", function()
-        bg:SetCenterColor(0.1, 0.1, 0.1, 0.5)
+        local sel = selectedBuildId == row._buildId
+        if sel then
+            bg:SetCenterColor(0.1, 0.2, 0.1, 0.8)
+        else
+            bg:SetCenterColor(0.08, 0.08, 0.08, 0.6)
+        end
     end)
 
     row:SetHidden(true)
@@ -69,43 +106,39 @@ local function CreateBuildRow(parent, index)
 end
 
 ----------------------------------------------------------------------
--- Create a detail row for set progress
+-- Create detail row
 ----------------------------------------------------------------------
 local function CreateDetailRow(parent, index)
-    local row = WINDOW_MANAGER:CreateControl("SmartGearDetailRow" .. index, parent, CT_CONTROL)
+    local row = WINDOW_MANAGER:CreateControl("SGDRow" .. index, parent, CT_CONTROL)
     row:SetDimensions(400, DETAIL_ROW_HEIGHT)
     row:SetAnchor(TOPLEFT, parent, TOPLEFT, 0, (index - 1) * DETAIL_ROW_HEIGHT)
 
-    -- Set name
     local name = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
     name:SetFont("ZoFontGame")
-    name:SetColor(0.85, 0.85, 0.85, 1)
-    name:SetAnchor(LEFT, row, LEFT, 4, 0)
+    name:SetColor(0.8, 0.8, 0.8, 1)
+    name:SetAnchor(LEFT, row, LEFT, 0, 0)
     name:SetDimensions(190, DETAIL_ROW_HEIGHT)
     name:SetHorizontalAlignment(TEXT_ALIGN_LEFT)
     name:SetVerticalAlignment(TEXT_ALIGN_CENTER)
     row._nameLabel = name
 
-    -- Count label
     local cnt = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
     cnt:SetFont("ZoFontGameBold")
     cnt:SetColor(0, 1, 0, 1)
-    cnt:SetAnchor(LEFT, row, LEFT, 200, 0)
-    cnt:SetDimensions(50, DETAIL_ROW_HEIGHT)
+    cnt:SetAnchor(LEFT, row, LEFT, 195, 0)
+    cnt:SetDimensions(45, DETAIL_ROW_HEIGHT)
     cnt:SetHorizontalAlignment(TEXT_ALIGN_LEFT)
     cnt:SetVerticalAlignment(TEXT_ALIGN_CENTER)
     row._countLabel = cnt
 
-    -- Bar background
     local barBg = WINDOW_MANAGER:CreateControl(nil, row, CT_BACKDROP)
-    barBg:SetDimensions(130, 10)
-    barBg:SetAnchor(LEFT, row, LEFT, 260, 0)
-    barBg:SetCenterColor(0.15, 0.15, 0.15, 0.8)
-    barBg:SetEdgeColor(0.3, 0.3, 0.3, 0.5)
+    barBg:SetDimensions(140, 10)
+    barBg:SetAnchor(LEFT, row, LEFT, 248, 0)
+    barBg:SetCenterColor(0.12, 0.12, 0.12, 0.8)
+    barBg:SetEdgeColor(0.2, 0.2, 0.2, 0.5)
     barBg:SetEdgeTexture("", 1, 1, 1)
     row._barBg = barBg
 
-    -- Bar fill
     local barFill = WINDOW_MANAGER:CreateControl(nil, row, CT_BACKDROP)
     barFill:SetDimensions(1, 10)
     barFill:SetAnchor(LEFT, barBg, LEFT, 0, 0)
@@ -119,65 +152,121 @@ local function CreateDetailRow(parent, index)
 end
 
 ----------------------------------------------------------------------
--- Initialize UI
+-- Create filter button
+----------------------------------------------------------------------
+local function CreateFilterBtn(parent, label, value, xOffset)
+    local btn = WINDOW_MANAGER:CreateControl(nil, parent, CT_LABEL)
+    btn:SetFont("ZoFontGameSmall")
+    btn:SetText(label)
+    btn:SetColor(0.5, 0.5, 0.5, 1)
+    btn:SetDimensions(38, 20)
+    btn:SetAnchor(LEFT, parent, LEFT, xOffset, 0)
+    btn:SetHorizontalAlignment(TEXT_ALIGN_CENTER)
+    btn:SetVerticalAlignment(TEXT_ALIGN_CENTER)
+    btn:SetMouseEnabled(true)
+
+    btn._value = value
+    btn._label = label
+
+    btn:SetHandler("OnMouseUp", function()
+        filterRole = value
+        scrollOffset = 0
+        SmartGear.RefreshBuildList()
+    end)
+    btn:SetHandler("OnMouseEnter", function()
+        btn:SetColor(1, 1, 1, 1)
+    end)
+    btn:SetHandler("OnMouseExit", function()
+        if filterRole == value then
+            btn:SetColor(0, 1, 0, 1)
+        else
+            btn:SetColor(0.5, 0.5, 0.5, 1)
+        end
+    end)
+
+    return btn
+end
+
+----------------------------------------------------------------------
+-- Init UI
 ----------------------------------------------------------------------
 local function InitUI()
     browser = SmartGearBuildBrowser
     if not browser then return false end
 
-    -- Close button
     local closeBtn = browser:GetNamedChild("CloseBtn")
     if closeBtn then
-        closeBtn:SetHandler("OnClicked", function()
-            SmartGear.ToggleBuildBrowser()
-        end)
+        closeBtn:SetHandler("OnClicked", function() SmartGear.ToggleBuildBrowser() end)
     end
 
-    -- Panels
     leftPanel = browser:GetNamedChild("LeftPanel")
     rightPanel = browser:GetNamedChild("RightPanel")
     noBuildLabel = browser:GetNamedChild("NoBuildLabel")
+    listParent = leftPanel:GetNamedChild("List")
+    searchBox = leftPanel:GetNamedChild("SearchBox")
+    filtersParent = leftPanel:GetNamedChild("Filters")
 
-    -- Right panel labels
     buildNameLabel = rightPanel:GetNamedChild("BuildName")
-    roleCtxLabel   = rightPanel:GetNamedChild("RoleCtx")
-    progressLabel  = rightPanel:GetNamedChild("Progress")
-    activateBtn    = rightPanel:GetNamedChild("ActivateBtn")
-    deactivateBtn  = rightPanel:GetNamedChild("DeactivateBtn")
+    roleCtxLabel = rightPanel:GetNamedChild("RoleCtx")
+    progressLabel = rightPanel:GetNamedChild("Progress")
+    activateBtn = rightPanel:GetNamedChild("ActivateBtn")
+    deactivateBtn = rightPanel:GetNamedChild("DeactivateBtn")
 
     -- Activate/Deactivate handlers
-    if activateBtn then
-        activateBtn:SetHandler("OnClicked", function()
-            if selectedBuildId then
-                SmartGear.ActivateBuild(selectedBuildId)
-                SmartGear.RefreshBuildBrowser()
-            end
-        end)
-    end
-    if deactivateBtn then
-        deactivateBtn:SetHandler("OnClicked", function()
-            SmartGear.ActivateBuild(nil)
+    activateBtn:SetHandler("OnClicked", function()
+        if selectedBuildId then
+            SmartGear.ActivateBuild(selectedBuildId)
             SmartGear.RefreshBuildBrowser()
-        end)
+        end
+    end)
+    deactivateBtn:SetHandler("OnClicked", function()
+        SmartGear.ActivateBuild(nil)
+        SmartGear.RefreshBuildBrowser()
+    end)
+
+    -- Search box
+    searchBox:SetHandler("OnTextChanged", function()
+        searchText = searchBox:GetText() or ""
+        scrollOffset = 0
+        SmartGear.RefreshBuildList()
+    end)
+    -- Placeholder text
+    searchBox:SetText("")
+
+    -- Filter buttons: All | DD | Tank | Heal
+    local filters = {
+        {"All",  "all",    0},
+        {"MagDD", "MagDD", 42},
+        {"StamDD","StamDD",84},
+        {"Tank", "Tank",   130},
+        {"Heal", "Healer", 172},
+    }
+    for _, f in ipairs(filters) do
+        local btn = CreateFilterBtn(filtersParent, f[1], f[2], f[3])
+        table.insert(filterBtns, btn)
     end
 
-    -- Create build list rows (left panel)
-    local listParent = leftPanel:GetNamedChild("List") or leftPanel
-    for i = 1, MAX_BUILD_ROWS do
+    -- Create row pools
+    for i = 1, MAX_VISIBLE_ROWS do
         buildRows[i] = CreateBuildRow(listParent, i)
     end
-
-    -- Create detail rows (right panel)
-    local detailParent = rightPanel:GetNamedChild("SetList") or rightPanel
+    local detailParent = rightPanel:GetNamedChild("SetList")
     for i = 1, MAX_DETAIL_ROWS do
         detailRows[i] = CreateDetailRow(detailParent, i)
     end
 
+    -- Mouse wheel scroll on build list
+    listParent:SetMouseEnabled(true)
+    listParent:SetHandler("OnMouseWheel", function(_, delta)
+        scrollOffset = scrollOffset - delta * 2
+        local maxScroll = math.max(0, #filteredBuilds - MAX_VISIBLE_ROWS)
+        scrollOffset = math.max(0, math.min(scrollOffset, maxScroll))
+        SmartGear.RenderBuildRows()
+    end)
+
     -- ESC to close
     browser:SetHandler("OnKeyUp", function(_, key)
-        if key == KEY_ESCAPE then
-            SmartGear.ToggleBuildBrowser()
-        end
+        if key == KEY_ESCAPE then SmartGear.ToggleBuildBrowser() end
     end)
 
     isInitialized = true
@@ -185,71 +274,128 @@ local function InitUI()
 end
 
 ----------------------------------------------------------------------
--- Populate build list (left panel)
+-- Collect and filter builds
 ----------------------------------------------------------------------
-function SmartGear.PopulateBuildList()
+function SmartGear.CollectFilteredBuilds()
     local lang = SmartGear.currentLang or "en"
-    local builds = {}
+    local all = {}
 
-    -- Collect all builds
     if SmartGear.PreBuilds then
         for id, build in pairs(SmartGear.PreBuilds) do
-            table.insert(builds, { id = id, build = build, isPre = true })
+            table.insert(all, { id = id, build = build, isPre = true })
         end
     end
     if SmartGear.savedVars and SmartGear.savedVars.customBuilds then
         for id, build in pairs(SmartGear.savedVars.customBuilds) do
-            table.insert(builds, { id = id, build = build, isPre = false })
+            table.insert(all, { id = id, build = build, isPre = false })
         end
     end
 
-    -- Sort by name
-    table.sort(builds, function(a, b)
+    -- Apply filters
+    local filtered = {}
+    local searchLower = string.lower(searchText)
+
+    for _, entry in ipairs(all) do
+        local b = entry.build
+        local name = lang == "ru" and (b.nameRu or b.name) or b.name
+        local nameLower = string.lower(name or "")
+
+        -- Role filter
+        if filterRole ~= "all" and b.role ~= filterRole then
+            -- skip
+        -- Search filter
+        elseif searchLower ~= "" and not string.find(nameLower, searchLower, 1, true) then
+            -- skip
+        else
+            table.insert(filtered, entry)
+        end
+    end
+
+    -- Sort: by role, then by name
+    table.sort(filtered, function(a, b)
+        if a.build.role ~= b.build.role then
+            return (a.build.role or "") < (b.build.role or "")
+        end
         local na = lang == "ru" and (a.build.nameRu or a.build.name) or a.build.name
         local nb = lang == "ru" and (b.build.nameRu or b.build.name) or b.build.name
         return (na or "") < (nb or "")
     end)
 
-    -- Fill rows
-    for i = 1, MAX_BUILD_ROWS do
+    filteredBuilds = filtered
+end
+
+----------------------------------------------------------------------
+-- Render visible build rows (from scrollOffset)
+----------------------------------------------------------------------
+function SmartGear.RenderBuildRows()
+    local lang = SmartGear.currentLang or "en"
+
+    for i = 1, MAX_VISIBLE_ROWS do
         local row = buildRows[i]
         if not row then break end
 
-        if i <= #builds then
-            local data = builds[i]
-            local name = lang == "ru" and (data.build.nameRu or data.build.name) or data.build.name
+        local dataIdx = scrollOffset + i
+        if dataIdx <= #filteredBuilds then
+            local data = filteredBuilds[dataIdx]
+            local b = data.build
+            local name = lang == "ru" and (b.nameRu or b.name) or b.name
             row._nameLabel:SetText(name or data.id)
-            row._srcLabel:SetText(data.isPre and "[P]" or "[U]")
 
-            -- Color: green if active
+            -- Context label
+            local ctxShort = {solo="solo", group="grp", trial="tri", pvp="pvp"}
+            row._ctxLabel:SetText(ctxShort[b.context] or "")
+
+            -- Role dot color
+            local rc = ROLE_COLORS[b.role] or {0.5, 0.5, 0.5}
+            row._dot:SetCenterColor(rc[1], rc[2], rc[3], 1)
+
+            -- Active highlight
             local isActive = SmartGear.ActiveBuild and SmartGear.ActiveBuild.id == data.id
+            local isSelected = selectedBuildId == data.id
+
             if isActive then
                 row._nameLabel:SetColor(0, 1, 0, 1)
+            elseif isSelected then
+                row._nameLabel:SetColor(1, 1, 1, 1)
             else
-                row._nameLabel:SetColor(0.85, 0.85, 0.85, 1)
+                row._nameLabel:SetColor(0.75, 0.75, 0.75, 1)
             end
 
-            -- Click handler
+            if isSelected then
+                row._bg:SetCenterColor(0.1, 0.2, 0.1, 0.8)
+            else
+                row._bg:SetCenterColor(0.08, 0.08, 0.08, 0.6)
+            end
+
             row._buildId = data.id
             row:SetHandler("OnMouseUp", function()
                 selectedBuildId = data.id
                 SmartGear.ShowBuildDetails(data.id)
-                -- Refresh highlights
-                SmartGear.PopulateBuildList()
+                SmartGear.RenderBuildRows()
             end)
-
-            -- Highlight selected
-            if selectedBuildId == data.id then
-                row._bg:SetCenterColor(0.15, 0.2, 0.15, 0.7)
-            else
-                row._bg:SetCenterColor(0.1, 0.1, 0.1, 0.5)
-            end
 
             row:SetHidden(false)
         else
             row:SetHidden(true)
         end
     end
+
+    -- Update filter button colors
+    for _, btn in ipairs(filterBtns) do
+        if btn._value == filterRole then
+            btn:SetColor(0, 1, 0, 1)
+        else
+            btn:SetColor(0.5, 0.5, 0.5, 1)
+        end
+    end
+end
+
+----------------------------------------------------------------------
+-- Refresh build list (filter + render)
+----------------------------------------------------------------------
+function SmartGear.RefreshBuildList()
+    SmartGear.CollectFilteredBuilds()
+    SmartGear.RenderBuildRows()
 end
 
 ----------------------------------------------------------------------
@@ -274,12 +420,9 @@ function SmartGear.ShowBuildDetails(buildId)
     noBuildLabel:SetHidden(true)
 
     local lang = SmartGear.currentLang or "en"
-
-    -- Build name
     local name = lang == "ru" and (build.nameRu or build.name) or build.name
     buildNameLabel:SetText(name or buildId)
 
-    -- Role + Context
     local roleName = SmartGear.GetRoleDisplayName and SmartGear.GetRoleDisplayName(build.role) or (build.role or "?")
     local ctxInfo = SmartGear.ContentContexts and SmartGear.ContentContexts[build.context]
     local ctxName = ctxInfo and (lang == "ru" and ctxInfo.nameRu or ctxInfo.name) or (build.context or "?")
@@ -308,7 +451,6 @@ function SmartGear.ShowBuildDetails(buildId)
         totalEquipped = totalEquipped + math.min(info.equipped, info.needed)
     end
 
-    -- Progress label
     local pct = totalNeeded > 0 and math.floor(totalEquipped / totalNeeded * 100) or 0
     progressLabel:SetText(
         (lang == "ru" and "Прогресс: " or "Progress: ")
@@ -318,11 +460,11 @@ function SmartGear.ShowBuildDetails(buildId)
     elseif pct >= 50 then progressLabel:SetColor(1, 1, 0, 1)
     else progressLabel:SetColor(1, 0.5, 0, 1) end
 
-    -- Sort sets: incomplete first
+    -- Sort: incomplete first
     table.sort(setOrder, function(a, b)
-        local aComplete = sets[a].equipped >= sets[a].needed
-        local bComplete = sets[b].equipped >= sets[b].needed
-        if aComplete ~= bComplete then return not aComplete end
+        local aC = sets[a].equipped >= sets[a].needed
+        local bC = sets[b].equipped >= sets[b].needed
+        if aC ~= bC then return not aC end
         return a < b
     end)
 
@@ -330,14 +472,12 @@ function SmartGear.ShowBuildDetails(buildId)
     for i = 1, MAX_DETAIL_ROWS do
         local row = detailRows[i]
         if not row then break end
-
         if i <= #setOrder then
             local setName = setOrder[i]
             local info = sets[setName]
             row._nameLabel:SetText(setName)
             row._countLabel:SetText(info.equipped .. "/" .. info.needed)
 
-            -- Color
             if info.equipped >= info.needed then
                 row._nameLabel:SetColor(0, 1, 0, 1)
                 row._countLabel:SetColor(0, 1, 0, 1)
@@ -345,21 +485,16 @@ function SmartGear.ShowBuildDetails(buildId)
                 row._nameLabel:SetColor(1, 1, 0, 1)
                 row._countLabel:SetColor(1, 1, 0, 1)
             else
-                row._nameLabel:SetColor(0.7, 0.7, 0.7, 1)
-                row._countLabel:SetColor(0.7, 0.7, 0.7, 1)
+                row._nameLabel:SetColor(0.6, 0.6, 0.6, 1)
+                row._countLabel:SetColor(0.6, 0.6, 0.6, 1)
             end
 
-            -- Progress bar
             local barWidth = row._barBg:GetWidth()
             local ratio = info.needed > 0 and (math.min(info.equipped, info.needed) / info.needed) or 0
             row._barFill:SetWidth(math.max(1, barWidth * ratio))
-            if ratio >= 1 then
-                row._barFill:SetCenterColor(0, 0.7, 0, 0.9)
-            elseif ratio > 0 then
-                row._barFill:SetCenterColor(0.7, 0.7, 0, 0.9)
-            else
-                row._barFill:SetCenterColor(0.3, 0, 0, 0.5)
-            end
+            if ratio >= 1 then row._barFill:SetCenterColor(0, 0.65, 0, 0.9)
+            elseif ratio > 0 then row._barFill:SetCenterColor(0.65, 0.65, 0, 0.9)
+            else row._barFill:SetCenterColor(0.25, 0, 0, 0.5) end
 
             row:SetHidden(false)
         else
@@ -374,12 +509,8 @@ function SmartGear.ShowBuildDetails(buildId)
 
     local actLabel = activateBtn:GetNamedChild("Label")
     local deactLabel = deactivateBtn:GetNamedChild("Label")
-    if actLabel then
-        actLabel:SetText(lang == "ru" and "АКТИВИРОВАТЬ" or "ACTIVATE")
-    end
-    if deactLabel then
-        deactLabel:SetText(lang == "ru" and "ДЕАКТИВИРОВАТЬ" or "DEACTIVATE")
-    end
+    if actLabel then actLabel:SetText(lang == "ru" and "АКТИВИРОВАТЬ" or "ACTIVATE") end
+    if deactLabel then deactLabel:SetText(lang == "ru" and "ДЕАКТИВИРОВАТЬ" or "DEACTIVATE") end
 end
 
 ----------------------------------------------------------------------
@@ -394,10 +525,10 @@ function SmartGear.ToggleBuildBrowser()
     end
 
     if browser:IsHidden() then
-        SmartGear.PopulateBuildList()
+        scrollOffset = 0
+        SmartGear.RefreshBuildList()
         browser:SetHidden(false)
 
-        -- Auto-select active build
         if SmartGear.ActiveBuild and SmartGear.ActiveBuild.id then
             selectedBuildId = SmartGear.ActiveBuild.id
             SmartGear.ShowBuildDetails(selectedBuildId)
@@ -420,15 +551,13 @@ end
 ----------------------------------------------------------------------
 function SmartGear.RefreshBuildBrowser()
     if not isInitialized or not browser or browser:IsHidden() then return end
-    SmartGear.PopulateBuildList()
+    SmartGear.RefreshBuildList()
     if selectedBuildId then
         SmartGear.ShowBuildDetails(selectedBuildId)
     end
 end
 
 ----------------------------------------------------------------------
--- Init (called from SmartGear.lua)
+-- Init (deferred)
 ----------------------------------------------------------------------
-function SmartGear.InitBuildBrowser()
-    -- Deferred — actual init happens on first open
-end
+function SmartGear.InitBuildBrowser() end
