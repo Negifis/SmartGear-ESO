@@ -14,7 +14,14 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache")
 BASE_URL = "https://alcasthq.com"
 REQUEST_DELAY = 1.5
 
-# Build index pages
+# Build index pages — multiple categories for different contexts
+BUILD_INDEX_URLS = {
+    "group":  f"{BASE_URL}/category/eso-builds-classes/",
+    "solo":   f"{BASE_URL}/category/eso-solo-builds/",
+    "pvp":    f"{BASE_URL}/category/eso-pvp-builds/",
+    "trial":  f"{BASE_URL}/category/pve-group-builds/",
+}
+# Legacy single URL (used by parse_alcast_builds for set mentions)
 BUILD_INDEX_URL = f"{BASE_URL}/category/eso-builds-classes/"
 
 # Role detection from URL/title
@@ -160,9 +167,23 @@ def _extract_sets_from_gear_tables(html):
             slot_name = cells[0].get_text(strip=True)
             set_cell = cells[1]
 
-            # Extract trait and weight from cells[2] and cells[3] if present
-            trait_text = cells[2].get_text(strip=True) if len(cells) > 2 else ""
-            weight_text = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+            # Extract trait and weight from remaining cells
+            # Column order varies between pages! Detect by content.
+            raw_col2 = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+            raw_col3 = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+            raw_col4 = cells[4].get_text(strip=True) if len(cells) > 4 else ""
+
+            # Detect which column is trait vs weight by keywords
+            weight_keywords = {"light", "medium", "heavy"}
+            trait_text = ""
+            weight_text = ""
+            for col in [raw_col2, raw_col3, raw_col4]:
+                col_lower = col.lower().strip()
+                if col_lower in weight_keywords:
+                    weight_text = col
+                elif col_lower and col_lower not in {"", "jewelry", "weapon", "shield"}:
+                    if not trait_text:
+                        trait_text = col
 
             # Extract set names from eso-hub links (most reliable)
             eso_hub_links = set_cell.find_all("a", href=re.compile(r"eso-hub\.com/en/sets/"))
@@ -296,26 +317,35 @@ def _compute_set_scores(raw_sets, noteworthy_sets, role):
 
 
 def parse_alcast_builds(use_cache=True, max_builds=30):
-    """Parse Alcast builds with precise table extraction.
-    Returns: list of {"set_name", "role", "source", "weight"}
+    """Parse Alcast builds from ALL categories with precise table extraction.
+    Returns: list of {"set_name", "role", "source", "weight", "context"}
     """
-    print("[alcast] Parsing builds (v2 precise mode)...")
+    print("[alcast] Parsing builds (v2 precise mode, all categories)...")
     all_results = []
+    seen_urls = set()
 
-    # Fetch build index
-    index_html = _get_cached_or_fetch(BUILD_INDEX_URL, "index", use_cache=use_cache)
-    if not index_html:
-        print("[alcast] Could not fetch build index")
-        return all_results
+    # Parse all category index pages
+    all_build_links = []
+    for category_ctx, index_url in BUILD_INDEX_URLS.items():
+        cache_key = f"index_{category_ctx}"
+        index_html = _get_cached_or_fetch(index_url, cache_key, use_cache=use_cache)
+        if not index_html:
+            continue
+        links = _get_build_links(index_html)
+        for url, title in links:
+            if url not in seen_urls:
+                seen_urls.add(url)
+                all_build_links.append((url, title, category_ctx))
 
-    build_links = _get_build_links(index_html)
-    print(f"[alcast] Found {len(build_links)} build links")
+    print(f"[alcast] Found {len(all_build_links)} unique build links across all categories")
 
     parsed = 0
     total_sets = 0
-    for url, title in build_links[:max_builds]:
+    for url, title, category_ctx in all_build_links[:max_builds]:
         role = _detect_role(url, title)
         context = _detect_context(url, title)
+        if context == "group" and category_ctx != "group":
+            context = category_ctx
 
         cache_name = re.sub(r"[^a-z0-9]", "_", url.split("/")[-2] if "/" in url else title)[:50]
         html = _get_cached_or_fetch(url, cache_name, use_cache=use_cache)
@@ -336,7 +366,7 @@ def parse_alcast_builds(use_cache=True, max_builds=30):
 
         parsed += 1
         if parsed % 5 == 0:
-            print(f"  [alcast] Parsed {parsed}/{min(len(build_links), max_builds)} builds "
+            print(f"  [alcast] Parsed {parsed}/{min(len(all_build_links), max_builds)} builds "
                   f"({total_sets} set entries so far)")
 
     # Summary
@@ -357,6 +387,8 @@ SLOT_MAP = {
     "waist": "EQUIP_SLOT_WAIST", "belt": "EQUIP_SLOT_WAIST",
     "legs": "EQUIP_SLOT_LEGS", "leg": "EQUIP_SLOT_LEGS",
     "feet": "EQUIP_SLOT_FEET", "boot": "EQUIP_SLOT_FEET", "boots": "EQUIP_SLOT_FEET",
+    "shoes": "EQUIP_SLOT_FEET", "shoe": "EQUIP_SLOT_FEET",
+    "pants": "EQUIP_SLOT_LEGS", "pant": "EQUIP_SLOT_LEGS",
     "hands": "EQUIP_SLOT_HAND", "hand": "EQUIP_SLOT_HAND", "gloves": "EQUIP_SLOT_HAND",
     "neck": "EQUIP_SLOT_NECK", "necklace": "EQUIP_SLOT_NECK", "amulet": "EQUIP_SLOT_NECK",
     "ring 1": "EQUIP_SLOT_RING1", "ring1": "EQUIP_SLOT_RING1",
@@ -446,40 +478,95 @@ def _make_build_id(role, context, title):
     return f"{role.lower()}_{context}_{clean}"
 
 
-def extract_full_builds(use_cache=True, max_builds=30):
-    """Extract complete build definitions from Alcast build pages."""
-    print("[alcast] Extracting full build definitions...")
+def _detect_table_context(heading_text):
+    """Detect context from a gear table heading."""
+    lower = heading_text.lower()
+    if any(kw in lower for kw in ["vateshran", "maelstrom", "solo", "infinite archive"]):
+        return "solo"
+    if any(kw in lower for kw in ["pvp", "battleground", "cyrodiil"]):
+        return "pvp"
+    if any(kw in lower for kw in ["trial", "raid"]):
+        return "trial"
+    if "beginner" in lower:
+        return None  # skip beginner setups
+    if "skill" in lower:
+        return None  # skill tables, not gear
+    return "group"
+
+
+def _extract_builds_from_page(html, url, title, role):
+    """Extract MULTIPLE builds from a single page (group + solo + pvp setups)."""
+    soup = BeautifulSoup(html, "lxml")
+    gear_tables = soup.select("div.table-2 table")
+    if not gear_tables:
+        return []
+
     builds = []
+    seen_contexts = set()
 
-    index_html = _get_cached_or_fetch(BUILD_INDEX_URL, "index", use_cache=use_cache)
-    if not index_html:
-        return builds
+    for table in gear_tables:
+        # Get table heading for context
+        prev_heading = table.find_previous(["h2", "h3", "h4"])
+        heading_text = prev_heading.get_text(strip=True) if prev_heading else ""
 
-    build_links = _get_build_links(index_html)
+        table_ctx = _detect_table_context(heading_text)
+        if table_ctx is None:
+            continue  # skip beginner/skill tables
 
-    for url, title in build_links[:max_builds]:
-        role = _detect_role(url, title)
-        context = _detect_context(url, title)
-        cache_name = re.sub(r"[^a-z0-9]", "_", url.split("/")[-2] if "/" in url else title)[:50]
-        html = _get_cached_or_fetch(url, cache_name, use_cache=use_cache)
-        if not html:
+        # Only take first table per context
+        if table_ctx in seen_contexts:
             continue
 
-        raw_sets = _extract_sets_from_gear_tables(html)
+        rows = table.select("tbody tr")
+        if not rows:
+            rows = table.select("tr")[1:]
 
-        # Only use primary setup (non-alternative, high priority)
-        primary = [s for s in raw_sets if not s.get("is_alternative") and s.get("setup_priority", 0) >= 0.7]
-        if not primary:
-            primary = [s for s in raw_sets if not s.get("is_alternative")]
-        if len(primary) < 4:
-            continue
+        slot_entries = []
+        for row in rows:
+            cells = row.find_all("td")
+            if len(cells) < 2:
+                continue
 
+            slot_name = cells[0].get_text(strip=True)
+            set_cell = cells[1]
+
+            # Detect trait/weight from remaining columns
+            raw_col2 = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+            raw_col3 = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+            raw_col4 = cells[4].get_text(strip=True) if len(cells) > 4 else ""
+
+            weight_keywords = {"light", "medium", "heavy"}
+            trait_text = ""
+            weight_text = ""
+            for col in [raw_col2, raw_col3, raw_col4]:
+                col_lower = col.lower().strip()
+                if col_lower in weight_keywords:
+                    weight_text = col
+                elif col_lower and col_lower not in {"", "jewelry", "weapon", "shield"}:
+                    if not trait_text:
+                        trait_text = col
+
+            # Extract set name
+            eso_hub_links = set_cell.find_all("a", href=re.compile(r"eso-hub\.com/en/sets/"))
+            if eso_hub_links:
+                name = eso_hub_links[0].get_text(strip=True)
+            else:
+                name = set_cell.get_text(strip=True).split(" or ")[0].strip().strip("()")
+
+            if not name or len(name) < 3:
+                continue
+
+            slot_entries.append({
+                "name": name, "slot": slot_name,
+                "trait": trait_text, "weight": weight_text,
+            })
+
+        # Build slot mapping
         slots = {}
-        for entry in primary:
+        for entry in slot_entries:
             slot_const = _map_slot(entry.get("slot", ""))
             if not slot_const:
                 continue
-            # Handle duplicate ring
             if slot_const == "EQUIP_SLOT_RING1" and slot_const in slots:
                 slot_const = "EQUIP_SLOT_RING2"
             if slot_const in slots:
@@ -498,15 +585,70 @@ def extract_full_builds(use_cache=True, max_builds=30):
         if len(slots) < 4:
             continue
 
+        seen_contexts.add(table_ctx)
+
+        # Build name: append context if not group
+        build_name = title
+        if table_ctx == "solo":
+            # Use heading for more descriptive name
+            if "vateshran" in heading_text.lower():
+                build_name = title + " [Vateshran]"
+            elif "maelstrom" in heading_text.lower():
+                build_name = title + " [Maelstrom]"
+            elif "infinite" in heading_text.lower():
+                build_name = title + " [Infinite Archive]"
+            else:
+                build_name = title + " [Solo]"
+        elif table_ctx == "pvp":
+            build_name = title + " [PvP]"
+
         builds.append({
-            "id": _make_build_id(role, context, title),
-            "name": title,
+            "id": _make_build_id(role, table_ctx, build_name),
+            "name": build_name,
             "role": role,
-            "context": context,
+            "context": table_ctx,
             "source": "alcast",
             "sourceUrl": url,
             "slots": slots,
         })
 
-    print(f"[alcast] Extracted {len(builds)} full build definitions")
+    return builds
+
+
+def extract_full_builds(use_cache=True, max_builds=80):
+    """Extract complete build definitions from Alcast — multiple setups per page."""
+    print("[alcast] Extracting full build definitions (multi-setup per page)...")
+    builds = []
+    seen_urls = set()
+
+    # Use group index as primary (all builds are there)
+    index_url = BUILD_INDEX_URLS["group"]
+    index_html = _get_cached_or_fetch(index_url, "index_group", use_cache=use_cache)
+    if not index_html:
+        return builds
+
+    build_links = _get_build_links(index_html)
+    print(f"  Found {len(build_links)} build links")
+
+    for url, title in build_links[:max_builds]:
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+
+        role = _detect_role(url, title)
+        cache_name = re.sub(r"[^a-z0-9]", "_", url.split("/")[-2] if "/" in url else title)[:50]
+        html = _get_cached_or_fetch(url, cache_name, use_cache=use_cache)
+        if not html:
+            continue
+
+        page_builds = _extract_builds_from_page(html, url, title, role)
+        builds.extend(page_builds)
+
+    # Count by context
+    ctx_counts = {}
+    for b in builds:
+        ctx_counts[b["context"]] = ctx_counts.get(b["context"], 0) + 1
+
+    print(f"[alcast] Extracted {len(builds)} builds: " +
+          ", ".join(f"{ctx}={cnt}" for ctx, cnt in sorted(ctx_counts.items())))
     return builds

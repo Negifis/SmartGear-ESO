@@ -67,8 +67,8 @@ def main():
     parser.add_argument(
         "--max-builds",
         type=int,
-        default=30,
-        help="Max build pages to parse per site (default: 30)"
+        default=80,
+        help="Max build pages to parse across all categories (default: 80)"
     )
     parser.add_argument(
         "--list", "-l",
