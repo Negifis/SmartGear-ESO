@@ -1,237 +1,259 @@
 ----------------------------------------------------------------------
 -- SmartGear — Target Build Browser UI
--- Custom in-game window for browsing, selecting, and managing
--- target builds with progress tracking.
+-- Simple implementation using direct control creation.
 ----------------------------------------------------------------------
 SmartGear = SmartGear or {}
 
-local BUILD_LIST_TYPE = 1
-local SET_DETAIL_TYPE = 1
-
--- State
-local browserWindow = nil
-local leftList = nil
-local rightList = nil
-local selectedBuildId = nil
 local isInitialized = false
+local selectedBuildId = nil
+local buildRows = {}    -- left panel row controls
+local detailRows = {}   -- right panel detail controls
+
+-- UI refs
+local browser, leftPanel, rightPanel, noBuildLabel
+local buildNameLabel, roleCtxLabel, progressLabel
+local activateBtn, deactivateBtn
+
+local ROW_HEIGHT = 32
+local DETAIL_ROW_HEIGHT = 26
+local MAX_BUILD_ROWS = 12
+local MAX_DETAIL_ROWS = 10
 
 ----------------------------------------------------------------------
--- UI References
+-- Create a clickable row for the build list
 ----------------------------------------------------------------------
-local ui = {}
+local function CreateBuildRow(parent, index)
+    local row = WINDOW_MANAGER:CreateControl("SmartGearBuildRow" .. index, parent, CT_CONTROL)
+    row:SetDimensions(210, ROW_HEIGHT)
+    row:SetAnchor(TOPLEFT, parent, TOPLEFT, 0, (index - 1) * ROW_HEIGHT)
+    row:SetMouseEnabled(true)
 
+    -- Background
+    local bg = WINDOW_MANAGER:CreateControl(nil, row, CT_BACKDROP)
+    bg:SetAnchorFill(row)
+    bg:SetCenterColor(0.1, 0.1, 0.1, 0.5)
+    bg:SetEdgeColor(0.2, 0.2, 0.2, 0.3)
+    bg:SetEdgeTexture("", 1, 1, 1)
+    row._bg = bg
+
+    -- Name label
+    local name = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
+    name:SetFont("ZoFontGame")
+    name:SetColor(0.85, 0.85, 0.85, 1)
+    name:SetAnchor(LEFT, row, LEFT, 6, 0)
+    name:SetDimensions(175, ROW_HEIGHT)
+    name:SetHorizontalAlignment(TEXT_ALIGN_LEFT)
+    name:SetVerticalAlignment(TEXT_ALIGN_CENTER)
+    row._nameLabel = name
+
+    -- Source tag
+    local src = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
+    src:SetFont("ZoFontGameSmall")
+    src:SetColor(0.5, 0.5, 0.5, 1)
+    src:SetAnchor(RIGHT, row, RIGHT, -4, 0)
+    src:SetDimensions(30, ROW_HEIGHT)
+    src:SetHorizontalAlignment(TEXT_ALIGN_RIGHT)
+    src:SetVerticalAlignment(TEXT_ALIGN_CENTER)
+    row._srcLabel = src
+
+    -- Hover handlers
+    row:SetHandler("OnMouseEnter", function()
+        bg:SetCenterColor(0.2, 0.25, 0.2, 0.7)
+    end)
+    row:SetHandler("OnMouseExit", function()
+        bg:SetCenterColor(0.1, 0.1, 0.1, 0.5)
+    end)
+
+    row:SetHidden(true)
+    return row
+end
+
+----------------------------------------------------------------------
+-- Create a detail row for set progress
+----------------------------------------------------------------------
+local function CreateDetailRow(parent, index)
+    local row = WINDOW_MANAGER:CreateControl("SmartGearDetailRow" .. index, parent, CT_CONTROL)
+    row:SetDimensions(400, DETAIL_ROW_HEIGHT)
+    row:SetAnchor(TOPLEFT, parent, TOPLEFT, 0, (index - 1) * DETAIL_ROW_HEIGHT)
+
+    -- Set name
+    local name = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
+    name:SetFont("ZoFontGame")
+    name:SetColor(0.85, 0.85, 0.85, 1)
+    name:SetAnchor(LEFT, row, LEFT, 4, 0)
+    name:SetDimensions(190, DETAIL_ROW_HEIGHT)
+    name:SetHorizontalAlignment(TEXT_ALIGN_LEFT)
+    name:SetVerticalAlignment(TEXT_ALIGN_CENTER)
+    row._nameLabel = name
+
+    -- Count label
+    local cnt = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
+    cnt:SetFont("ZoFontGameBold")
+    cnt:SetColor(0, 1, 0, 1)
+    cnt:SetAnchor(LEFT, row, LEFT, 200, 0)
+    cnt:SetDimensions(50, DETAIL_ROW_HEIGHT)
+    cnt:SetHorizontalAlignment(TEXT_ALIGN_LEFT)
+    cnt:SetVerticalAlignment(TEXT_ALIGN_CENTER)
+    row._countLabel = cnt
+
+    -- Bar background
+    local barBg = WINDOW_MANAGER:CreateControl(nil, row, CT_BACKDROP)
+    barBg:SetDimensions(130, 10)
+    barBg:SetAnchor(LEFT, row, LEFT, 260, 0)
+    barBg:SetCenterColor(0.15, 0.15, 0.15, 0.8)
+    barBg:SetEdgeColor(0.3, 0.3, 0.3, 0.5)
+    barBg:SetEdgeTexture("", 1, 1, 1)
+    row._barBg = barBg
+
+    -- Bar fill
+    local barFill = WINDOW_MANAGER:CreateControl(nil, row, CT_BACKDROP)
+    barFill:SetDimensions(1, 10)
+    barFill:SetAnchor(LEFT, barBg, LEFT, 0, 0)
+    barFill:SetCenterColor(0, 0.6, 0, 0.9)
+    barFill:SetEdgeColor(0, 0, 0, 0)
+    barFill:SetEdgeTexture("", 1, 1, 0)
+    row._barFill = barFill
+
+    row:SetHidden(true)
+    return row
+end
+
+----------------------------------------------------------------------
+-- Initialize UI
+----------------------------------------------------------------------
 local function InitUI()
-    browserWindow = SmartGearBuildBrowser
-    if not browserWindow then return false end
-
-    ui.closeBtn       = browserWindow:GetNamedChild("CloseBtn")
-    ui.leftPanel      = browserWindow:GetNamedChild("LeftPanel")
-    ui.rightPanel     = browserWindow:GetNamedChild("RightPanel")
-    ui.buildName      = ui.rightPanel:GetNamedChild("BuildName")
-    ui.roleCtx        = ui.rightPanel:GetNamedChild("RoleCtx")
-    ui.progress       = ui.rightPanel:GetNamedChild("Progress")
-    ui.activateBtn    = ui.rightPanel:GetNamedChild("ActivateBtn")
-    ui.deactivateBtn  = ui.rightPanel:GetNamedChild("DeactivateBtn")
-    ui.noBuildLabel   = browserWindow:GetNamedChild("NoBuildLabel")
-
-    leftList  = ui.leftPanel:GetNamedChild("List")
-    rightList = ui.rightPanel:GetNamedChild("SetList")
+    browser = SmartGearBuildBrowser
+    if not browser then return false end
 
     -- Close button
-    ui.closeBtn:SetHandler("OnClicked", function()
-        SmartGear.ToggleBuildBrowser()
-    end)
+    local closeBtn = browser:GetNamedChild("CloseBtn")
+    if closeBtn then
+        closeBtn:SetHandler("OnClicked", function()
+            SmartGear.ToggleBuildBrowser()
+        end)
+    end
 
-    -- Activate button
-    ui.activateBtn:SetHandler("OnClicked", function()
-        if selectedBuildId then
-            SmartGear.ActivateBuild(selectedBuildId)
+    -- Panels
+    leftPanel = browser:GetNamedChild("LeftPanel")
+    rightPanel = browser:GetNamedChild("RightPanel")
+    noBuildLabel = browser:GetNamedChild("NoBuildLabel")
+
+    -- Right panel labels
+    buildNameLabel = rightPanel:GetNamedChild("BuildName")
+    roleCtxLabel   = rightPanel:GetNamedChild("RoleCtx")
+    progressLabel  = rightPanel:GetNamedChild("Progress")
+    activateBtn    = rightPanel:GetNamedChild("ActivateBtn")
+    deactivateBtn  = rightPanel:GetNamedChild("DeactivateBtn")
+
+    -- Activate/Deactivate handlers
+    if activateBtn then
+        activateBtn:SetHandler("OnClicked", function()
+            if selectedBuildId then
+                SmartGear.ActivateBuild(selectedBuildId)
+                SmartGear.RefreshBuildBrowser()
+            end
+        end)
+    end
+    if deactivateBtn then
+        deactivateBtn:SetHandler("OnClicked", function()
+            SmartGear.ActivateBuild(nil)
             SmartGear.RefreshBuildBrowser()
-        end
-    end)
+        end)
+    end
 
-    -- Deactivate button
-    ui.deactivateBtn:SetHandler("OnClicked", function()
-        SmartGear.ActivateBuild(nil)
-        SmartGear.RefreshBuildBrowser()
-    end)
+    -- Create build list rows (left panel)
+    local listParent = leftPanel:GetNamedChild("List") or leftPanel
+    for i = 1, MAX_BUILD_ROWS do
+        buildRows[i] = CreateBuildRow(listParent, i)
+    end
+
+    -- Create detail rows (right panel)
+    local detailParent = rightPanel:GetNamedChild("SetList") or rightPanel
+    for i = 1, MAX_DETAIL_ROWS do
+        detailRows[i] = CreateDetailRow(detailParent, i)
+    end
 
     -- ESC to close
-    browserWindow:SetHandler("OnKeyUp", function(_, key)
+    browser:SetHandler("OnKeyUp", function(_, key)
         if key == KEY_ESCAPE then
             SmartGear.ToggleBuildBrowser()
         end
     end)
-
-    -- Setup scroll lists
-    SetupBuildList()
-    SetupSetDetailList()
 
     isInitialized = true
     return true
 end
 
 ----------------------------------------------------------------------
--- Build List (Left Panel)
-----------------------------------------------------------------------
-function SetupBuildList()
-    if not leftList then return end
-
-    ZO_ScrollList_AddDataType(leftList, BUILD_LIST_TYPE, "SmartGearBuildListRow", 36,
-        function(control, data)
-            SetupBuildListRow(control, data)
-        end
-    )
-
-    ZO_ScrollList_EnableHighlight(leftList, "ZO_ThinListHighlight")
-end
-
-function SetupBuildListRow(control, data)
-    local lang = SmartGear.currentLang or "en"
-    local build = data.build
-    local nameLabel = control:GetNamedChild("Name")
-    local sourceLabel = control:GetNamedChild("Source")
-    local bg = control:GetNamedChild("BG")
-
-    local name = lang == "ru" and (build.nameRu or build.name) or build.name
-    nameLabel:SetText(name or data.id)
-
-    -- Source indicator
-    local srcText = build.source == "alcast" and "[P]" or "[U]"
-    sourceLabel:SetText(srcText)
-
-    -- Highlight active build
-    local isActive = SmartGear.ActiveBuild and SmartGear.ActiveBuild.id == data.id
-    local isSelected = selectedBuildId == data.id
-
-    if isActive then
-        nameLabel:SetColor(0, 1, 0, 1)  -- green
-    elseif isSelected then
-        nameLabel:SetColor(1, 1, 1, 1)  -- white
-    else
-        nameLabel:SetColor(0.8, 0.8, 0.8, 1)  -- light gray
-    end
-
-    -- Click handler
-    control:SetMouseEnabled(true)
-    control:SetHandler("OnMouseUp", function()
-        selectedBuildId = data.id
-        SmartGear.ShowBuildDetails(data.id)
-        RefreshBuildListHighlights()
-    end)
-
-    -- Hover
-    control:SetHandler("OnMouseEnter", function()
-        if bg then
-            bg:SetCenterColor(0.15, 0.15, 0.15, 0.6)
-        end
-    end)
-    control:SetHandler("OnMouseExit", function()
-        if bg then
-            bg:SetCenterColor(0.1, 0.1, 0.1, 0.4)
-        end
-    end)
-end
-
-function RefreshBuildListHighlights()
-    ZO_ScrollList_RefreshVisible(leftList)
-end
-
-----------------------------------------------------------------------
--- Set Detail List (Right Panel)
-----------------------------------------------------------------------
-function SetupSetDetailList()
-    if not rightList then return end
-
-    ZO_ScrollList_AddDataType(rightList, SET_DETAIL_TYPE, "SmartGearSetDetailRow", 28,
-        function(control, data)
-            SetupSetDetailRow(control, data)
-        end
-    )
-end
-
-function SetupSetDetailRow(control, data)
-    local nameLabel = control:GetNamedChild("SetName")
-    local countLabel = control:GetNamedChild("Count")
-    local barBG = control:GetNamedChild("BarBG")
-    local barFill = control:GetNamedChild("BarFill")
-
-    nameLabel:SetText(data.setName or "?")
-    countLabel:SetText(data.equipped .. "/" .. data.needed)
-
-    -- Color based on completion
-    if data.equipped >= data.needed then
-        nameLabel:SetColor(0, 1, 0, 1)  -- green = complete
-        countLabel:SetColor(0, 1, 0, 1)
-    elseif data.equipped > 0 then
-        nameLabel:SetColor(1, 1, 0, 1)  -- yellow = partial
-        countLabel:SetColor(1, 1, 0, 1)
-    else
-        nameLabel:SetColor(0.7, 0.7, 0.7, 1)  -- gray = none
-        countLabel:SetColor(0.7, 0.7, 0.7, 1)
-    end
-
-    -- Progress bar
-    if barBG and barFill then
-        local barWidth = barBG:GetWidth()
-        local ratio = data.needed > 0 and (data.equipped / data.needed) or 0
-        ratio = math.min(1, ratio)
-        barFill:SetWidth(math.max(1, barWidth * ratio))
-
-        if ratio >= 1 then
-            barFill:SetCenterColor(0, 0.7, 0, 0.9)
-        elseif ratio > 0 then
-            barFill:SetCenterColor(0.7, 0.7, 0, 0.9)
-        else
-            barFill:SetCenterColor(0.3, 0, 0, 0.9)
-        end
-    end
-end
-
-----------------------------------------------------------------------
--- Populate build list
+-- Populate build list (left panel)
 ----------------------------------------------------------------------
 function SmartGear.PopulateBuildList()
-    if not leftList then return end
+    local lang = SmartGear.currentLang or "en"
+    local builds = {}
 
-    local scrollData = ZO_ScrollList_GetDataList(leftList)
-    ZO_ScrollList_Clear(leftList)
-
-    -- Pre-built builds
+    -- Collect all builds
     if SmartGear.PreBuilds then
         for id, build in pairs(SmartGear.PreBuilds) do
-            local entry = ZO_ScrollList_CreateDataEntry(BUILD_LIST_TYPE, {
-                id = id,
-                build = build,
-            })
-            table.insert(scrollData, entry)
+            table.insert(builds, { id = id, build = build, isPre = true })
         end
     end
-
-    -- Custom builds
     if SmartGear.savedVars and SmartGear.savedVars.customBuilds then
         for id, build in pairs(SmartGear.savedVars.customBuilds) do
-            local entry = ZO_ScrollList_CreateDataEntry(BUILD_LIST_TYPE, {
-                id = id,
-                build = build,
-            })
-            table.insert(scrollData, entry)
+            table.insert(builds, { id = id, build = build, isPre = false })
         end
     end
 
     -- Sort by name
-    local lang = SmartGear.currentLang or "en"
-    table.sort(scrollData, function(a, b)
-        local nameA = lang == "ru" and (a.data.build.nameRu or a.data.build.name) or a.data.build.name
-        local nameB = lang == "ru" and (b.data.build.nameRu or b.data.build.name) or b.data.build.name
-        return (nameA or "") < (nameB or "")
+    table.sort(builds, function(a, b)
+        local na = lang == "ru" and (a.build.nameRu or a.build.name) or a.build.name
+        local nb = lang == "ru" and (b.build.nameRu or b.build.name) or b.build.name
+        return (na or "") < (nb or "")
     end)
 
-    ZO_ScrollList_Commit(leftList)
+    -- Fill rows
+    for i = 1, MAX_BUILD_ROWS do
+        local row = buildRows[i]
+        if not row then break end
+
+        if i <= #builds then
+            local data = builds[i]
+            local name = lang == "ru" and (data.build.nameRu or data.build.name) or data.build.name
+            row._nameLabel:SetText(name or data.id)
+            row._srcLabel:SetText(data.isPre and "[P]" or "[U]")
+
+            -- Color: green if active
+            local isActive = SmartGear.ActiveBuild and SmartGear.ActiveBuild.id == data.id
+            if isActive then
+                row._nameLabel:SetColor(0, 1, 0, 1)
+            else
+                row._nameLabel:SetColor(0.85, 0.85, 0.85, 1)
+            end
+
+            -- Click handler
+            row._buildId = data.id
+            row:SetHandler("OnMouseUp", function()
+                selectedBuildId = data.id
+                SmartGear.ShowBuildDetails(data.id)
+                -- Refresh highlights
+                SmartGear.PopulateBuildList()
+            end)
+
+            -- Highlight selected
+            if selectedBuildId == data.id then
+                row._bg:SetCenterColor(0.15, 0.2, 0.15, 0.7)
+            else
+                row._bg:SetCenterColor(0.1, 0.1, 0.1, 0.5)
+            end
+
+            row:SetHidden(false)
+        else
+            row:SetHidden(true)
+        end
+    end
 end
 
 ----------------------------------------------------------------------
--- Show build details in right panel
+-- Show build details (right panel)
 ----------------------------------------------------------------------
 function SmartGear.ShowBuildDetails(buildId)
     local build = nil
@@ -243,31 +265,35 @@ function SmartGear.ShowBuildDetails(buildId)
     end
 
     if not build then
-        ui.rightPanel:SetHidden(true)
-        ui.noBuildLabel:SetHidden(false)
+        rightPanel:SetHidden(true)
+        noBuildLabel:SetHidden(false)
         return
     end
 
-    ui.rightPanel:SetHidden(false)
-    ui.noBuildLabel:SetHidden(true)
+    rightPanel:SetHidden(false)
+    noBuildLabel:SetHidden(true)
 
     local lang = SmartGear.currentLang or "en"
+
+    -- Build name
     local name = lang == "ru" and (build.nameRu or build.name) or build.name
-    ui.buildName:SetText(name or buildId)
+    buildNameLabel:SetText(name or buildId)
 
     -- Role + Context
     local roleName = SmartGear.GetRoleDisplayName and SmartGear.GetRoleDisplayName(build.role) or (build.role or "?")
     local ctxInfo = SmartGear.ContentContexts and SmartGear.ContentContexts[build.context]
     local ctxName = ctxInfo and (lang == "ru" and ctxInfo.nameRu or ctxInfo.name) or (build.context or "?")
-    ui.roleCtx:SetText(roleName .. " | " .. ctxName)
+    roleCtxLabel:SetText(roleName .. " | " .. ctxName)
 
-    -- Compute progress
+    -- Compute set progress
     local sets = {}
+    local setOrder = {}
     if build.slots then
         for slot, spec in pairs(build.slots) do
             if spec and spec.set then
                 if not sets[spec.set] then
                     sets[spec.set] = { needed = 0, equipped = 0 }
+                    table.insert(setOrder, spec.set)
                 end
                 sets[spec.set].needed = sets[spec.set].needed + 1
             end
@@ -282,52 +308,72 @@ function SmartGear.ShowBuildDetails(buildId)
         totalEquipped = totalEquipped + math.min(info.equipped, info.needed)
     end
 
+    -- Progress label
     local pct = totalNeeded > 0 and math.floor(totalEquipped / totalNeeded * 100) or 0
-    ui.progress:SetText(
+    progressLabel:SetText(
         (lang == "ru" and "Прогресс: " or "Progress: ")
-        .. totalEquipped .. "/" .. totalNeeded
-        .. " (" .. pct .. "%)"
+        .. totalEquipped .. "/" .. totalNeeded .. " (" .. pct .. "%)"
     )
+    if pct >= 100 then progressLabel:SetColor(0, 1, 0, 1)
+    elseif pct >= 50 then progressLabel:SetColor(1, 1, 0, 1)
+    else progressLabel:SetColor(1, 0.5, 0, 1) end
 
-    if pct >= 100 then
-        ui.progress:SetColor(0, 1, 0, 1)
-    elseif pct >= 50 then
-        ui.progress:SetColor(1, 1, 0, 1)
-    else
-        ui.progress:SetColor(1, 0.5, 0, 1)
-    end
-
-    -- Populate set detail list
-    local scrollData = ZO_ScrollList_GetDataList(rightList)
-    ZO_ScrollList_Clear(rightList)
-
-    for setName, info in pairs(sets) do
-        local entry = ZO_ScrollList_CreateDataEntry(SET_DETAIL_TYPE, {
-            setName = setName,
-            needed = info.needed,
-            equipped = info.equipped,
-        })
-        table.insert(scrollData, entry)
-    end
-
-    -- Sort: incomplete first, then by name
-    table.sort(scrollData, function(a, b)
-        local aComplete = a.data.equipped >= a.data.needed
-        local bComplete = b.data.equipped >= b.data.needed
+    -- Sort sets: incomplete first
+    table.sort(setOrder, function(a, b)
+        local aComplete = sets[a].equipped >= sets[a].needed
+        local bComplete = sets[b].equipped >= sets[b].needed
         if aComplete ~= bComplete then return not aComplete end
-        return a.data.setName < b.data.setName
+        return a < b
     end)
 
-    ZO_ScrollList_Commit(rightList)
+    -- Fill detail rows
+    for i = 1, MAX_DETAIL_ROWS do
+        local row = detailRows[i]
+        if not row then break end
 
-    -- Show/hide activate/deactivate buttons
+        if i <= #setOrder then
+            local setName = setOrder[i]
+            local info = sets[setName]
+            row._nameLabel:SetText(setName)
+            row._countLabel:SetText(info.equipped .. "/" .. info.needed)
+
+            -- Color
+            if info.equipped >= info.needed then
+                row._nameLabel:SetColor(0, 1, 0, 1)
+                row._countLabel:SetColor(0, 1, 0, 1)
+            elseif info.equipped > 0 then
+                row._nameLabel:SetColor(1, 1, 0, 1)
+                row._countLabel:SetColor(1, 1, 0, 1)
+            else
+                row._nameLabel:SetColor(0.7, 0.7, 0.7, 1)
+                row._countLabel:SetColor(0.7, 0.7, 0.7, 1)
+            end
+
+            -- Progress bar
+            local barWidth = row._barBg:GetWidth()
+            local ratio = info.needed > 0 and (math.min(info.equipped, info.needed) / info.needed) or 0
+            row._barFill:SetWidth(math.max(1, barWidth * ratio))
+            if ratio >= 1 then
+                row._barFill:SetCenterColor(0, 0.7, 0, 0.9)
+            elseif ratio > 0 then
+                row._barFill:SetCenterColor(0.7, 0.7, 0, 0.9)
+            else
+                row._barFill:SetCenterColor(0.3, 0, 0, 0.5)
+            end
+
+            row:SetHidden(false)
+        else
+            row:SetHidden(true)
+        end
+    end
+
+    -- Buttons
     local isActive = SmartGear.ActiveBuild and SmartGear.ActiveBuild.id == buildId
-    ui.activateBtn:SetHidden(isActive)
-    ui.deactivateBtn:SetHidden(not isActive)
+    activateBtn:SetHidden(isActive)
+    deactivateBtn:SetHidden(not isActive)
 
-    -- Localize buttons
-    local actLabel = ui.activateBtn:GetNamedChild("Label")
-    local deactLabel = ui.deactivateBtn:GetNamedChild("Label")
+    local actLabel = activateBtn:GetNamedChild("Label")
+    local deactLabel = deactivateBtn:GetNamedChild("Label")
     if actLabel then
         actLabel:SetText(lang == "ru" and "АКТИВИРОВАТЬ" or "ACTIVATE")
     end
@@ -337,7 +383,7 @@ function SmartGear.ShowBuildDetails(buildId)
 end
 
 ----------------------------------------------------------------------
--- Toggle browser visibility
+-- Toggle browser
 ----------------------------------------------------------------------
 function SmartGear.ToggleBuildBrowser()
     if not isInitialized then
@@ -347,33 +393,33 @@ function SmartGear.ToggleBuildBrowser()
         end
     end
 
-    if browserWindow:IsHidden() then
+    if browser:IsHidden() then
         SmartGear.PopulateBuildList()
-        browserWindow:SetHidden(false)
+        browser:SetHidden(false)
 
-        -- Show details if a build is active
+        -- Auto-select active build
         if SmartGear.ActiveBuild and SmartGear.ActiveBuild.id then
             selectedBuildId = SmartGear.ActiveBuild.id
             SmartGear.ShowBuildDetails(selectedBuildId)
         else
-            ui.rightPanel:SetHidden(true)
-            ui.noBuildLabel:SetHidden(false)
-            ui.noBuildLabel:SetText(
+            rightPanel:SetHidden(true)
+            noBuildLabel:SetHidden(false)
+            noBuildLabel:SetText(
                 SmartGear.currentLang == "ru"
                     and "Выберите сборку из списка"
-                    or  "Select a build from the list"
+                    or "Select a build from the list"
             )
         end
     else
-        browserWindow:SetHidden(true)
+        browser:SetHidden(true)
     end
 end
 
 ----------------------------------------------------------------------
--- Refresh browser (after activate/deactivate)
+-- Refresh (after activate/deactivate)
 ----------------------------------------------------------------------
 function SmartGear.RefreshBuildBrowser()
-    if not isInitialized or not browserWindow or browserWindow:IsHidden() then return end
+    if not isInitialized or not browser or browser:IsHidden() then return end
     SmartGear.PopulateBuildList()
     if selectedBuildId then
         SmartGear.ShowBuildDetails(selectedBuildId)
@@ -381,15 +427,8 @@ function SmartGear.RefreshBuildBrowser()
 end
 
 ----------------------------------------------------------------------
--- Initialize (called from SmartGear.lua)
+-- Init (called from SmartGear.lua)
 ----------------------------------------------------------------------
 function SmartGear.InitBuildBrowser()
-    -- Defer init until window is first opened
-    -- Register scene fragment for auto-hide
-    if SmartGearBuildBrowser then
-        -- Hide when entering combat or opening other UI
-        local fragment = ZO_HUDFadeSceneFragment:New(SmartGearBuildBrowser, 200, 200)
-        HUD_SCENE:AddFragment(fragment)
-        HUD_UI_SCENE:AddFragment(fragment)
-    end
+    -- Deferred — actual init happens on first open
 end
