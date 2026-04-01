@@ -678,17 +678,27 @@ def _extract_builds_from_page(html, url, title, role):
         if len(slots) < 4:
             continue
 
-        # Auto-fill missing off-hand slots for DW builds
-        # Alcast often shows only "Weapon 1" without separate off-hand
+        # Auto-fill missing off-hand slots ONLY for DW builds
+        # 2H weapons (2H Sword, Bow, Staves) don't have an off-hand
+        TWO_HAND_WEAPONS = {
+            "WEAPONTYPE_TWO_HANDED_SWORD", "WEAPONTYPE_TWO_HANDED_AXE",
+            "WEAPONTYPE_TWO_HANDED_HAMMER", "WEAPONTYPE_BOW",
+            "WEAPONTYPE_FIRE_STAFF", "WEAPONTYPE_LIGHTNING_STAFF",
+            "WEAPONTYPE_FROST_STAFF", "WEAPONTYPE_HEALING_STAFF",
+        }
         if "EQUIP_SLOT_MAIN_HAND" in slots and "EQUIP_SLOT_OFF_HAND" not in slots:
             mh = slots["EQUIP_SLOT_MAIN_HAND"]
-            slots["EQUIP_SLOT_OFF_HAND"] = {"set": mh["set"]}
-            if mh.get("trait"):
-                # Off-hand typically gets a different trait (Precise if main is Nirnhoned)
-                if mh["trait"] == "ITEM_TRAIT_TYPE_WEAPON_NIRNHONED":
-                    slots["EQUIP_SLOT_OFF_HAND"]["trait"] = "ITEM_TRAIT_TYPE_WEAPON_PRECISE"
-                else:
-                    slots["EQUIP_SLOT_OFF_HAND"]["trait"] = mh.get("trait")
+            mh_weapon = mh.get("weaponType", "")
+            if mh_weapon not in TWO_HAND_WEAPONS:
+                # Main hand is 1H (Dagger/Sword/Axe/Mace) → add off-hand
+                slots["EQUIP_SLOT_OFF_HAND"] = {"set": mh["set"]}
+                if mh.get("trait"):
+                    if mh["trait"] == "ITEM_TRAIT_TYPE_WEAPON_NIRNHONED":
+                        slots["EQUIP_SLOT_OFF_HAND"]["trait"] = "ITEM_TRAIT_TYPE_WEAPON_PRECISE"
+                    else:
+                        slots["EQUIP_SLOT_OFF_HAND"]["trait"] = mh.get("trait")
+                if mh_weapon:
+                    slots["EQUIP_SLOT_OFF_HAND"]["weaponType"] = mh_weapon
 
         build_num += 1
 
