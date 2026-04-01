@@ -160,6 +160,10 @@ def _extract_sets_from_gear_tables(html):
             slot_name = cells[0].get_text(strip=True)
             set_cell = cells[1]
 
+            # Extract trait and weight from cells[2] and cells[3] if present
+            trait_text = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+            weight_text = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+
             # Extract set names from eso-hub links (most reliable)
             eso_hub_links = set_cell.find_all("a", href=re.compile(r"eso-hub\.com/en/sets/"))
             if eso_hub_links:
@@ -169,6 +173,8 @@ def _extract_sets_from_gear_tables(html):
                         all_sets.append({
                             "name": name,
                             "slot": slot_name,
+                            "trait": trait_text,
+                            "weight": weight_text,
                             "setup_priority": setup_weight,
                             "is_alternative": i > 0,  # first = primary, rest = alternatives
                         })
@@ -183,6 +189,8 @@ def _extract_sets_from_gear_tables(html):
                         all_sets.append({
                             "name": n,
                             "slot": slot_name,
+                            "trait": trait_text,
+                            "weight": weight_text,
                             "setup_priority": setup_weight,
                             "is_alternative": i > 0,
                         })
@@ -336,3 +344,169 @@ def parse_alcast_builds(use_cache=True, max_builds=30):
     print(f"[alcast] Done: {parsed} builds, {total_sets} entries, {unique_sets} unique sets")
 
     return all_results
+
+
+# ====================================================================
+# FULL BUILD EXTRACTION (for Target Build system)
+# ====================================================================
+
+SLOT_MAP = {
+    "head": "EQUIP_SLOT_HEAD", "helm": "EQUIP_SLOT_HEAD",
+    "shoulder": "EQUIP_SLOT_SHOULDERS", "shoulders": "EQUIP_SLOT_SHOULDERS",
+    "chest": "EQUIP_SLOT_CHEST", "body": "EQUIP_SLOT_CHEST",
+    "waist": "EQUIP_SLOT_WAIST", "belt": "EQUIP_SLOT_WAIST",
+    "legs": "EQUIP_SLOT_LEGS", "leg": "EQUIP_SLOT_LEGS",
+    "feet": "EQUIP_SLOT_FEET", "boot": "EQUIP_SLOT_FEET", "boots": "EQUIP_SLOT_FEET",
+    "hands": "EQUIP_SLOT_HAND", "hand": "EQUIP_SLOT_HAND", "gloves": "EQUIP_SLOT_HAND",
+    "neck": "EQUIP_SLOT_NECK", "necklace": "EQUIP_SLOT_NECK", "amulet": "EQUIP_SLOT_NECK",
+    "ring 1": "EQUIP_SLOT_RING1", "ring1": "EQUIP_SLOT_RING1",
+    "ring 2": "EQUIP_SLOT_RING2", "ring2": "EQUIP_SLOT_RING2",
+    "ring": "EQUIP_SLOT_RING1",
+    "main hand": "EQUIP_SLOT_MAIN_HAND", "mainhand": "EQUIP_SLOT_MAIN_HAND",
+    "weapon 1": "EQUIP_SLOT_MAIN_HAND", "front bar": "EQUIP_SLOT_MAIN_HAND",
+    "off hand": "EQUIP_SLOT_OFF_HAND", "offhand": "EQUIP_SLOT_OFF_HAND",
+    "shield": "EQUIP_SLOT_OFF_HAND",
+    "backup main": "EQUIP_SLOT_BACKUP_MAIN", "backbar": "EQUIP_SLOT_BACKUP_MAIN",
+    "weapon 2": "EQUIP_SLOT_BACKUP_MAIN", "back bar": "EQUIP_SLOT_BACKUP_MAIN",
+    "backup off": "EQUIP_SLOT_BACKUP_OFF",
+}
+
+WEAPON_TRAIT_MAP = {
+    "precise": "ITEM_TRAIT_TYPE_WEAPON_PRECISE",
+    "infused": "ITEM_TRAIT_TYPE_WEAPON_INFUSED",
+    "sharpened": "ITEM_TRAIT_TYPE_WEAPON_SHARPENED",
+    "charged": "ITEM_TRAIT_TYPE_WEAPON_CHARGED",
+    "powered": "ITEM_TRAIT_TYPE_WEAPON_POWERED",
+    "decisive": "ITEM_TRAIT_TYPE_WEAPON_DECISIVE",
+    "nirnhoned": "ITEM_TRAIT_TYPE_WEAPON_NIRNHONED",
+    "training": "ITEM_TRAIT_TYPE_WEAPON_TRAINING",
+}
+
+JEWELRY_TRAIT_MAP = {
+    "bloodthirsty": "ITEM_TRAIT_TYPE_JEWELRY_BLOODTHIRSTY",
+    "arcane": "ITEM_TRAIT_TYPE_JEWELRY_ARCANE",
+    "robust": "ITEM_TRAIT_TYPE_JEWELRY_ROBUST",
+    "infused": "ITEM_TRAIT_TYPE_JEWELRY_INFUSED",
+    "harmony": "ITEM_TRAIT_TYPE_JEWELRY_HARMONY",
+    "protective": "ITEM_TRAIT_TYPE_JEWELRY_PROTECTIVE",
+    "swift": "ITEM_TRAIT_TYPE_JEWELRY_SWIFT",
+    "triune": "ITEM_TRAIT_TYPE_JEWELRY_TRIUNE",
+}
+
+ARMOR_TRAIT_MAP = {
+    "divines": "ITEM_TRAIT_TYPE_ARMOR_DIVINES",
+    "impenetrable": "ITEM_TRAIT_TYPE_ARMOR_IMPENETRABLE",
+    "infused": "ITEM_TRAIT_TYPE_ARMOR_INFUSED",
+    "reinforced": "ITEM_TRAIT_TYPE_ARMOR_REINFORCED",
+    "sturdy": "ITEM_TRAIT_TYPE_ARMOR_STURDY",
+    "training": "ITEM_TRAIT_TYPE_ARMOR_TRAINING",
+    "well-fitted": "ITEM_TRAIT_TYPE_ARMOR_WELL_FITTED",
+    "nirnhoned": "ITEM_TRAIT_TYPE_ARMOR_NIRNHONED",
+}
+
+WEIGHT_MAP = {
+    "light": "ARMORTYPE_LIGHT", "medium": "ARMORTYPE_MEDIUM", "heavy": "ARMORTYPE_HEAVY",
+}
+
+WEAPON_SLOTS = {"EQUIP_SLOT_MAIN_HAND", "EQUIP_SLOT_OFF_HAND", "EQUIP_SLOT_BACKUP_MAIN", "EQUIP_SLOT_BACKUP_OFF"}
+JEWELRY_SLOTS = {"EQUIP_SLOT_NECK", "EQUIP_SLOT_RING1", "EQUIP_SLOT_RING2"}
+
+
+def _map_slot(slot_text):
+    lower = slot_text.lower().strip()
+    if lower in SLOT_MAP:
+        return SLOT_MAP[lower]
+    for key, val in SLOT_MAP.items():
+        if key in lower:
+            return val
+    return None
+
+
+def _map_trait(trait_text, slot_const):
+    lower = trait_text.lower().strip()
+    if not lower:
+        return None
+    if slot_const in WEAPON_SLOTS:
+        return WEAPON_TRAIT_MAP.get(lower)
+    elif slot_const in JEWELRY_SLOTS:
+        return JEWELRY_TRAIT_MAP.get(lower)
+    return ARMOR_TRAIT_MAP.get(lower)
+
+
+def _map_weight(weight_text):
+    lower = weight_text.lower().strip()
+    for key, val in WEIGHT_MAP.items():
+        if key in lower:
+            return val
+    return None
+
+
+def _make_build_id(role, context, title):
+    clean = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")[:40]
+    return f"{role.lower()}_{context}_{clean}"
+
+
+def extract_full_builds(use_cache=True, max_builds=30):
+    """Extract complete build definitions from Alcast build pages."""
+    print("[alcast] Extracting full build definitions...")
+    builds = []
+
+    index_html = _get_cached_or_fetch(BUILD_INDEX_URL, "index", use_cache=use_cache)
+    if not index_html:
+        return builds
+
+    build_links = _get_build_links(index_html)
+
+    for url, title in build_links[:max_builds]:
+        role = _detect_role(url, title)
+        context = _detect_context(url, title)
+        cache_name = re.sub(r"[^a-z0-9]", "_", url.split("/")[-2] if "/" in url else title)[:50]
+        html = _get_cached_or_fetch(url, cache_name, use_cache=use_cache)
+        if not html:
+            continue
+
+        raw_sets = _extract_sets_from_gear_tables(html)
+
+        # Only use primary setup (non-alternative, high priority)
+        primary = [s for s in raw_sets if not s.get("is_alternative") and s.get("setup_priority", 0) >= 0.7]
+        if not primary:
+            primary = [s for s in raw_sets if not s.get("is_alternative")]
+        if len(primary) < 4:
+            continue
+
+        slots = {}
+        for entry in primary:
+            slot_const = _map_slot(entry.get("slot", ""))
+            if not slot_const:
+                continue
+            # Handle duplicate ring
+            if slot_const == "EQUIP_SLOT_RING1" and slot_const in slots:
+                slot_const = "EQUIP_SLOT_RING2"
+            if slot_const in slots:
+                continue
+
+            trait_const = _map_trait(entry.get("trait", ""), slot_const)
+            weight_const = _map_weight(entry.get("weight", ""))
+
+            slot_data = {"set": entry["name"]}
+            if trait_const:
+                slot_data["trait"] = trait_const
+            if weight_const:
+                slot_data["weight"] = weight_const
+            slots[slot_const] = slot_data
+
+        if len(slots) < 4:
+            continue
+
+        builds.append({
+            "id": _make_build_id(role, context, title),
+            "name": title,
+            "role": role,
+            "context": context,
+            "source": "alcast",
+            "sourceUrl": url,
+            "slots": slots,
+        })
+
+    print(f"[alcast] Extracted {len(builds)} full build definitions")
+    return builds
