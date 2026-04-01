@@ -189,9 +189,23 @@ end
 ----------------------------------------------------------------------
 -- Init UI
 ----------------------------------------------------------------------
+local PIXEL = "EsoUI/Art/Miscellaneous/single_pixel.dds"
+
+local function MakeBG(parent, r, g, b, a)
+    local tex = WINDOW_MANAGER:CreateControl(nil, parent, CT_TEXTURE)
+    tex:SetTexture(PIXEL)
+    tex:SetAnchorFill(parent)
+    tex:SetColor(r, g, b, a)
+    tex:SetDrawLayer(DL_BACKGROUND)
+    return tex
+end
+
 local function InitUI()
     browser = SmartGearBuildBrowser
     if not browser then return false end
+
+    -- Create all backgrounds in Lua (XML Texture color doesn't work reliably)
+    MakeBG(browser, 0.04, 0.04, 0.04, 0.95)  -- main dark bg
 
     local closeBtn = browser:GetNamedChild("CloseBtn")
     if closeBtn then
@@ -204,6 +218,20 @@ local function InitUI()
     listParent = leftPanel:GetNamedChild("List")
     searchBox = leftPanel:GetNamedChild("SearchBox")
     filtersParent = leftPanel:GetNamedChild("Filters")
+
+    -- Header bg
+    local header = browser:GetNamedChild("Header")
+    if header then MakeBG(header, 0, 0.12, 0, 0.95) end
+
+    -- Right panel bg
+    MakeBG(rightPanel, 0.06, 0.06, 0.06, 0.7)
+
+    -- Search box bg
+    MakeBG(searchBox, 0.1, 0.1, 0.1, 0.85)
+
+    -- Button backgrounds
+    MakeBG(activateBtn, 0, 0.35, 0, 0.9)
+    MakeBG(deactivateBtn, 0.35, 0.12, 0, 0.9)
 
     buildNameLabel = rightPanel:GetNamedChild("BuildName")
     roleCtxLabel = rightPanel:GetNamedChild("RoleCtx")

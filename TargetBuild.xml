@@ -7,19 +7,13 @@
             <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" />
 
             <Controls>
-                <!-- Dark background (color set in Lua) -->
-                <Texture name="$(parent)BG" color="0a0a0aF0" textureFile="EsoUI/Art/Miscellaneous/single_pixel.dds">
-                    <AnchorFill />
-                </Texture>
+                <!-- BG created in Lua -->
 
-                <!-- Header bar -->
+                <!-- Header -->
                 <Control name="$(parent)Header">
                     <Dimensions x="720" y="32" />
                     <Anchor point="TOPLEFT" />
                     <Controls>
-                        <Texture name="$(parent)BG" color="001F00F2" textureFile="EsoUI/Art/Miscellaneous/single_pixel.dds">
-                            <AnchorFill />
-                        </Texture>
                         <Label name="$(parent)Title" font="ZoFontWinH4" color="00FF00"
                                horizontalAlignment="CENTER" verticalAlignment="CENTER"
                                text="SmartGear -- Target Build">
@@ -46,12 +40,6 @@
                     <Dimensions x="260" y="510" />
                     <Anchor point="TOPLEFT" offsetX="8" offsetY="38" />
                     <Controls>
-                        <!-- Search box background -->
-                        <Texture name="$(parent)SearchBG" color="1A1A1AD9" textureFile="EsoUI/Art/Miscellaneous/single_pixel.dds">
-                            <Dimensions x="258" y="24" />
-                            <Anchor point="TOPLEFT" offsetX="0" offsetY="0" />
-                        </Texture>
-
                         <!-- Search input -->
                         <EditBox name="$(parent)SearchBox" mouseEnabled="true"
                                  font="ZoFontGame" maxInputChars="40"
@@ -80,10 +68,6 @@
                     <Dimensions x="430" y="510" />
                     <Anchor point="TOPRIGHT" offsetX="-8" offsetY="38" />
                     <Controls>
-                        <Texture name="$(parent)BG" color="0F0F0FB3" textureFile="EsoUI/Art/Miscellaneous/single_pixel.dds">
-                            <AnchorFill />
-                        </Texture>
-
                         <Label name="$(parent)BuildName" font="ZoFontWinH3" color="FFFFFF"
                                horizontalAlignment="LEFT" verticalAlignment="TOP"
                                wrapMode="ELLIPSIS" text="">
@@ -113,9 +97,6 @@
                             <Dimensions x="150" y="32" />
                             <Anchor point="BOTTOMLEFT" offsetX="10" offsetY="-8" />
                             <Controls>
-                                <Texture name="$(parent)BG" color="005900E6" textureFile="EsoUI/Art/Miscellaneous/single_pixel.dds">
-                                    <AnchorFill />
-                                </Texture>
                                 <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
                                        horizontalAlignment="CENTER" verticalAlignment="CENTER"
                                        text="ACTIVATE">
@@ -129,9 +110,6 @@
                             <Dimensions x="150" y="32" />
                             <Anchor point="BOTTOMLEFT" offsetX="170" offsetY="-8" />
                             <Controls>
-                                <Texture name="$(parent)BG" color="591F00E6" textureFile="EsoUI/Art/Miscellaneous/single_pixel.dds">
-                                    <AnchorFill />
-                                </Texture>
                                 <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
                                        horizontalAlignment="CENTER" verticalAlignment="CENTER"
                                        text="DEACTIVATE">
