@@ -190,9 +190,11 @@ end
 -- Init UI
 ----------------------------------------------------------------------
 local PIXEL = "EsoUI/Art/Miscellaneous/single_pixel.dds"
+local bgCounter = 0
 
 local function MakeBG(parent, r, g, b, a)
-    local tex = WINDOW_MANAGER:CreateControl(nil, parent, CT_TEXTURE)
+    bgCounter = bgCounter + 1
+    local tex = WINDOW_MANAGER:CreateControl("SmartGearBG" .. bgCounter, parent, CT_TEXTURE)
     tex:SetTexture(PIXEL)
     tex:SetAnchorFill(parent)
     tex:SetColor(r, g, b, a)
