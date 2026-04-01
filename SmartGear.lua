@@ -3,7 +3,7 @@
 ----------------------------------------------------------------------
 SmartGear = SmartGear or {}
 SmartGear.name = "SmartGear"
-SmartGear.version = "1.1.0"
+SmartGear.version = "1.2.0"
 SmartGear.savedVarsVersion = 1
 
 -- Default settings
@@ -18,6 +18,10 @@ SmartGear.defaults = {
     showAlerts = true,        -- show upgrade alert notifications
     language = "auto",        -- "auto", "en", "ru"
     contentContext = "auto",  -- "auto", "solo", "dungeon", "trial", "pvp"
+    activeBuildId = nil,      -- nil = target build disabled
+    targetBuildMode = "blend", -- "blend", "target", "off"
+    targetBuildWeight = 0.6,  -- 0.0-1.0, weight of target vs generic scoring
+    customBuilds = {},        -- user-created builds
 }
 
 ----------------------------------------------------------------------
@@ -338,6 +342,13 @@ local function OnAddonLoaded(event, addonName)
     SmartGear.InitUpgradeAlerts()
     SmartGear.InitSettings()
 
+    -- Restore active target build
+    if SmartGear.savedVars.activeBuildId then
+        zo_callLater(function()
+            SmartGear.ActivateBuild(SmartGear.savedVars.activeBuildId)
+        end, 4000)
+    end
+
     -- Re-detect role when skills change
     EVENT_MANAGER:RegisterForEvent(SmartGear.name, EVENT_ACTION_SLOTS_ALL_HOTBARS_UPDATED, function()
         SmartGear.currentRole = SmartGear.DetectRole()
@@ -400,6 +411,54 @@ SLASH_COMMANDS["/smartgear"] = function(args)
             d("|c00FF00[SmartGear]|r " .. (lang == "ru"
                 and "Оружие размещено оптимально."
                 or  "Weapons are optimally placed."))
+        end
+    elseif args == "build" or args == "build list" then
+        SmartGear.ListBuilds()
+    elseif string.sub(args, 1, 15) == "build activate " then
+        local buildId = string.sub(args, 16)
+        if buildId == "off" or buildId == "none" then
+            SmartGear.ActivateBuild(nil)
+        else
+            SmartGear.ActivateBuild(buildId)
+        end
+    elseif args == "progress" then
+        SmartGear.ShowBuildProgress()
+    elseif args == "debug" then
+        -- Debug: show loaded data summary
+        local totalSets = 0
+        local tierCount = { S = 0, A = 0, B = 0, C = 0 }
+        local withStats = 0
+        if SmartGear.MetaSets then
+            for name, data in pairs(SmartGear.MetaSets) do
+                totalSets = totalSets + 1
+                local t = data.tier or "?"
+                if tierCount[t] then tierCount[t] = tierCount[t] + 1 end
+                if data.statContributions then withStats = withStats + 1 end
+            end
+        end
+        d("|c00FF00[SmartGear]|r Debug info:")
+        d("  MetaSets loaded: |cFFFFFF" .. totalSets .. "|r")
+        d("  Tiers: S=" .. tierCount.S .. " A=" .. tierCount.A .. " B=" .. tierCount.B .. " C=" .. tierCount.C)
+        d("  With statContributions: |cFFFFFF" .. withStats .. "|r")
+        d("  StatTargets: |cFFFFFF" .. (SmartGear.StatTargets and "OK" or "MISSING") .. "|r")
+        d("  TraitStatMap: |cFFFFFF" .. (SmartGear.TraitStatMap and "OK" or "MISSING") .. "|r")
+        d("  PlayerProfile: |cFFFFFF" .. (SmartGear.PlayerProfile and "OK" or "MISSING") .. "|r")
+        d("  ContentContexts: |cFFFFFF" .. (SmartGear.ContentContexts and "OK" or "MISSING") .. "|r")
+        local ctx = SmartGear.GetContentContext and SmartGear.GetContentContext() or "?"
+        d("  Active context: |c00DDFF" .. ctx .. "|r")
+        d("  Role: |cFFFF00" .. (SmartGear.currentRole or "?") .. "|r")
+        -- Show a few sample sets
+        if SmartGear.MetaSets then
+            d("  Sample S-tier sets:")
+            local shown = 0
+            for name, data in pairs(SmartGear.MetaSets) do
+                if data.tier == "S" and shown < 5 then
+                    local roles = table.concat(data.roles or {}, ",")
+                    local sc = data.statContributions and "YES" or "no"
+                    d("    |cFFFF00" .. name .. "|r [" .. roles .. "] stats=" .. sc)
+                    shown = shown + 1
+                end
+            end
         end
     elseif args == "buffs" then
         -- Debug: dump all active buffs to chat

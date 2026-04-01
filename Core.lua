@@ -491,6 +491,26 @@ function SmartGear.ComputeScore(result, role, pvpMode)
         score = score + 20
     end
 
+    -- === TARGET BUILD SCORING ===
+    if SmartGear.ActiveBuild and SmartGear.ComputeTargetBuildScore then
+        local tbScore, tbMatch = SmartGear.ComputeTargetBuildScore(result, SmartGear.ActiveBuild)
+        local mode = (SmartGear.savedVars and SmartGear.savedVars.targetBuildMode) or "blend"
+
+        if mode == "target" then
+            -- Hard mode: target score dominates
+            score = tbScore + traitScore + (result.isOptimalWeight and 10 or 0)
+                + math.floor((result.itemLevel or 0) / 210 * 15)
+        elseif mode == "blend" then
+            -- Blend mode: weighted mix of generic + target
+            local w = (SmartGear.savedVars and SmartGear.savedVars.targetBuildWeight) or 0.6
+            score = math.floor(score * (1 - w) + (score + tbScore) * w)
+        end
+        -- mode == "off" → tbScore ignored
+
+        result.targetBuildScore = tbScore
+        result.targetBuildMatch = tbMatch
+    end
+
     -- === CONVERT TO RATING ===
     if score >= 55 then
         result.rating = SmartGear.RATING_RECOMMENDED

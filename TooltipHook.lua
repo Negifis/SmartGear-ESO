@@ -289,6 +289,70 @@ local function BuildTooltipLines(eval)
         end
     end
 
+    -- Target build info
+    if eval.targetBuildMatch and SmartGear.ActiveBuild then
+        local tbm = eval.targetBuildMatch
+        local buildName = lang == "ru"
+            and (SmartGear.ActiveBuild.nameRu or SmartGear.ActiveBuild.name)
+            or SmartGear.ActiveBuild.name
+
+        table.insert(lines, {
+            text = COLOR_CYAN .. "--- " .. (lang == "ru" and "Цель: " or "Target: ")
+                .. buildName .. " ---" .. COLOR_RESET,
+        })
+
+        if tbm.isTargetSet then
+            -- Target set match
+            local setLine = COLOR_GREEN .. "  (+) "
+                .. (lang == "ru" and "Целевой сет!" or "Target set!")
+            if tbm.needMore then
+                setLine = setLine .. " "
+                    .. (lang == "ru" and "Нужно ещё " or "Need ")
+                    .. tbm.piecesNeeded
+                    .. (lang == "ru" and " шт." or " more")
+            end
+            setLine = setLine .. COLOR_RESET
+            table.insert(lines, { text = setLine })
+
+            if tbm.correctTrait then
+                table.insert(lines, {
+                    text = COLOR_GREEN .. "  (+) "
+                        .. (lang == "ru" and "Правильный трейт" or "Correct trait") .. COLOR_RESET,
+                })
+            end
+            if tbm.correctWeight then
+                table.insert(lines, {
+                    text = COLOR_GREEN .. "  (+) "
+                        .. (lang == "ru" and "Правильный вес" or "Correct weight") .. COLOR_RESET,
+                })
+            end
+        else
+            -- Not target set
+            if tbm.statSynergy > 0 then
+                table.insert(lines, {
+                    text = COLOR_YELLOW .. "  ~ "
+                        .. (lang == "ru" and "Похожие статы" or "Similar stats")
+                        .. " (+" .. tbm.statSynergy .. ")" .. COLOR_RESET,
+                })
+            else
+                table.insert(lines, {
+                    text = COLOR_GRAY .. "  "
+                        .. (lang == "ru" and "Не в целевой сборке" or "Not in target build") .. COLOR_RESET,
+                })
+            end
+        end
+
+        -- Target score
+        if eval.targetBuildScore and eval.targetBuildScore ~= 0 then
+            local tbColor = eval.targetBuildScore > 0 and COLOR_GREEN or COLOR_RED
+            local tbSign = eval.targetBuildScore > 0 and "+" or ""
+            table.insert(lines, {
+                text = COLOR_CYAN .. "  Target: "
+                    .. tbColor .. tbSign .. eval.targetBuildScore .. COLOR_RESET,
+            })
+        end
+    end
+
     -- Stickerbook note
     if eval.rating == SmartGear.RATING_STICKERBOOK and settings.showStickerbook then
         table.insert(lines, {
