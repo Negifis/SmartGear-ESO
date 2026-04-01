@@ -501,6 +501,9 @@ def _extract_builds_from_page(html, url, title, role):
     if not gear_tables:
         return []
 
+    # Detect page-level context from URL and title
+    page_context = _detect_context(url, title)
+
     builds = []
     seen_contexts = set()
 
@@ -510,6 +513,12 @@ def _extract_builds_from_page(html, url, title, role):
         heading_text = prev_heading.get_text(strip=True) if prev_heading else ""
 
         table_ctx = _detect_table_context(heading_text)
+
+        # For the main setup (Setup 1/2), use page-level context if detected
+        # e.g., page URL has "solo" → Setup 1 is a solo build, not group
+        if table_ctx == "group" and len(seen_contexts) == 0:
+            table_ctx = page_context  # first table inherits page context
+
         if table_ctx is None:
             continue  # skip beginner/skill tables
 
