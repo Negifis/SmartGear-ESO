@@ -10,6 +10,7 @@ local selectedBuildId = nil
 -- Row pools
 local buildRows = {}
 local detailRows = {}
+local bgCounter = 0
 
 -- Scroll state
 local scrollOffset = 0
@@ -191,8 +192,6 @@ end
 ----------------------------------------------------------------------
 -- Init UI
 ----------------------------------------------------------------------
-local bgCounter = 0
-
 local function MakeBG(parent, r, g, b, a)
     bgCounter = bgCounter + 1
     local bg = WINDOW_MANAGER:CreateControl("SmartGearBG" .. bgCounter, parent, CT_BACKDROP)
