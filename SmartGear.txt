@@ -14,6 +14,8 @@ MetaData.lua
 SetStatMap.lua
 TargetBuildScoring.lua
 BuildDatabase.lua
+TargetBuild.xml
+TargetBuild.lua
 TooltipHook.lua
 UpgradeAlert.xml
 UpgradeAlert.lua

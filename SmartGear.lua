@@ -341,6 +341,7 @@ local function OnAddonLoaded(event, addonName)
     SmartGear.InitTooltipHooks()
     SmartGear.InitUpgradeAlerts()
     SmartGear.InitSettings()
+    SmartGear.InitBuildBrowser()
 
     -- Restore active target build
     if SmartGear.savedVars.activeBuildId then
@@ -412,6 +413,8 @@ SLASH_COMMANDS["/smartgear"] = function(args)
                 and "Оружие размещено оптимально."
                 or  "Weapons are optimally placed."))
         end
+    elseif args == "builds" then
+        SmartGear.ToggleBuildBrowser()
     elseif args == "build" or args == "build list" then
         SmartGear.ListBuilds()
     elseif string.sub(args, 1, 15) == "build activate " then
@@ -529,7 +532,7 @@ SLASH_COMMANDS["/smartgear"] = function(args)
         if SmartGear.OpenSettings then
             SmartGear.OpenSettings()
         else
-            d("|c00FF00[SmartGear]|r Commands: /smartgear role | refresh | scan | swap | stats")
+            d("|c00FF00[SmartGear]|r Commands: /smartgear role | scan | swap | stats | builds | debug")
         end
     end
 end

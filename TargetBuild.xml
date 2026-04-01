@@ -1,0 +1,205 @@
+<GuiXml>
+    <Controls>
+        <!-- Build Browser main window -->
+        <TopLevelControl name="SmartGearBuildBrowser" hidden="true" movable="true"
+                         clampedToScreen="true" mouseEnabled="true"
+                         layer="OVERLAY" level="50">
+            <Dimensions x="680" y="520" />
+            <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" />
+
+            <Controls>
+                <!-- Background -->
+                <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
+                    <AnchorFill />
+                    <Edge edgeSize="2" />
+                </Backdrop>
+
+                <!-- Header bar -->
+                <Control name="$(parent)Header">
+                    <Dimensions x="680" y="32" />
+                    <Anchor point="TOPLEFT" />
+                    <Controls>
+                        <Backdrop name="$(parent)BG">
+                            <AnchorFill />
+                            <Center r="0" g="0.15" b="0" a="0.9" />
+                        </Backdrop>
+                        <Label name="$(parent)Title" font="ZoFontWinH4" color="00FF00"
+                               horizontalAlignment="CENTER" verticalAlignment="CENTER"
+                               text="SmartGear — Target Build">
+                            <AnchorFill />
+                        </Label>
+                    </Controls>
+                </Control>
+
+                <!-- Close button -->
+                <Button name="$(parent)CloseBtn" mouseEnabled="true">
+                    <Dimensions x="28" y="28" />
+                    <Anchor point="TOPRIGHT" offsetX="-4" offsetY="2" />
+                    <Controls>
+                        <Label name="$(parent)Label" font="ZoFontGameBold" color="FF4444"
+                               horizontalAlignment="CENTER" verticalAlignment="CENTER"
+                               text="X">
+                            <AnchorFill />
+                        </Label>
+                    </Controls>
+                </Button>
+
+                <!-- LEFT PANEL: Build list -->
+                <Control name="$(parent)LeftPanel">
+                    <Dimensions x="220" y="470" />
+                    <Anchor point="TOPLEFT" offsetX="8" offsetY="40" />
+
+                    <Controls>
+                        <!-- Filter label -->
+                        <Label name="$(parent)FilterLabel" font="ZoFontGameBold" color="AAAAAA"
+                               text="Builds:" horizontalAlignment="LEFT">
+                            <Dimensions x="220" y="20" />
+                            <Anchor point="TOPLEFT" />
+                        </Label>
+
+                        <!-- Build list scroll area -->
+                        <Control name="$(parent)List" inherits="ZO_ScrollList">
+                            <Dimensions x="220" y="440" />
+                            <Anchor point="TOPLEFT" offsetY="24" />
+                        </Control>
+                    </Controls>
+                </Control>
+
+                <!-- RIGHT PANEL: Build details / Editor -->
+                <Control name="$(parent)RightPanel">
+                    <Dimensions x="430" y="470" />
+                    <Anchor point="TOPRIGHT" offsetX="-8" offsetY="40" />
+
+                    <Controls>
+                        <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
+                            <AnchorFill />
+                            <Center r="0.05" g="0.05" b="0.05" a="0.6" />
+                        </Backdrop>
+
+                        <!-- Build name -->
+                        <Label name="$(parent)BuildName" font="ZoFontWinH3" color="FFFFFF"
+                               horizontalAlignment="LEFT" verticalAlignment="TOP"
+                               wrapMode="ELLIPSIS" text="">
+                            <Dimensions x="410" y="26" />
+                            <Anchor point="TOPLEFT" offsetX="10" offsetY="8" />
+                        </Label>
+
+                        <!-- Role + Context -->
+                        <Label name="$(parent)RoleCtx" font="ZoFontGame" color="AAAAAA"
+                               horizontalAlignment="LEFT" text="">
+                            <Dimensions x="410" y="18" />
+                            <Anchor point="TOPLEFT" offsetX="10" offsetY="36" />
+                        </Label>
+
+                        <!-- Progress label -->
+                        <Label name="$(parent)Progress" font="ZoFontGameBold" color="00FF00"
+                               horizontalAlignment="LEFT" text="">
+                            <Dimensions x="410" y="20" />
+                            <Anchor point="TOPLEFT" offsetX="10" offsetY="58" />
+                        </Label>
+
+                        <!-- Set details scroll area -->
+                        <Control name="$(parent)SetList" inherits="ZO_ScrollList">
+                            <Dimensions x="410" y="320" />
+                            <Anchor point="TOPLEFT" offsetX="10" offsetY="84" />
+                        </Control>
+
+                        <!-- Action buttons row -->
+                        <Button name="$(parent)ActivateBtn" mouseEnabled="true">
+                            <Dimensions x="120" y="30" />
+                            <Anchor point="BOTTOMLEFT" offsetX="10" offsetY="-8" />
+                            <Controls>
+                                <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
+                                    <AnchorFill />
+                                    <Center r="0" g="0.4" b="0" a="0.9" />
+                                </Backdrop>
+                                <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
+                                       horizontalAlignment="CENTER" verticalAlignment="CENTER"
+                                       text="ACTIVATE">
+                                    <AnchorFill />
+                                </Label>
+                            </Controls>
+                        </Button>
+
+                        <Button name="$(parent)DeactivateBtn" mouseEnabled="true" hidden="true">
+                            <Dimensions x="120" y="30" />
+                            <Anchor point="BOTTOMLEFT" offsetX="140" offsetY="-8" />
+                            <Controls>
+                                <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
+                                    <AnchorFill />
+                                    <Center r="0.4" g="0.15" b="0" a="0.9" />
+                                </Backdrop>
+                                <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
+                                       horizontalAlignment="CENTER" verticalAlignment="CENTER"
+                                       text="DEACTIVATE">
+                                    <AnchorFill />
+                                </Label>
+                            </Controls>
+                        </Button>
+                    </Controls>
+                </Control>
+
+                <!-- No build selected placeholder -->
+                <Label name="$(parent)NoBuildLabel" font="ZoFontGame" color="666666"
+                       horizontalAlignment="CENTER" verticalAlignment="CENTER"
+                       text="Select a build from the list" hidden="true">
+                    <Dimensions x="430" y="470" />
+                    <Anchor point="TOPRIGHT" offsetX="-8" offsetY="40" />
+                </Label>
+            </Controls>
+        </TopLevelControl>
+
+        <!-- Row template for build list (left panel) -->
+        <Control name="SmartGearBuildListRow" mouseEnabled="true" virtual="true">
+            <Dimensions x="210" y="36" />
+            <Controls>
+                <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop">
+                    <AnchorFill />
+                    <Center r="0.1" g="0.1" b="0.1" a="0.4" />
+                </Backdrop>
+                <Label name="$(parent)Name" font="ZoFontGame" color="FFFFFF"
+                       horizontalAlignment="LEFT" verticalAlignment="CENTER"
+                       wrapMode="ELLIPSIS">
+                    <Dimensions x="170" y="20" />
+                    <Anchor point="LEFT" offsetX="6" />
+                </Label>
+                <Label name="$(parent)Source" font="ZoFontGameSmall" color="888888"
+                       horizontalAlignment="RIGHT" verticalAlignment="CENTER">
+                    <Dimensions x="30" y="16" />
+                    <Anchor point="RIGHT" offsetX="-4" />
+                </Label>
+            </Controls>
+        </Control>
+
+        <!-- Row template for set detail (right panel) -->
+        <Control name="SmartGearSetDetailRow" virtual="true">
+            <Dimensions x="400" y="28" />
+            <Controls>
+                <Label name="$(parent)SetName" font="ZoFontGame" color="FFFFFF"
+                       horizontalAlignment="LEFT" verticalAlignment="CENTER"
+                       wrapMode="ELLIPSIS">
+                    <Dimensions x="200" y="20" />
+                    <Anchor point="LEFT" offsetX="4" />
+                </Label>
+                <Label name="$(parent)Count" font="ZoFontGameBold" color="00FF00"
+                       horizontalAlignment="LEFT" verticalAlignment="CENTER">
+                    <Dimensions x="60" y="20" />
+                    <Anchor point="LEFT" offsetX="210" />
+                </Label>
+                <!-- Progress bar background -->
+                <Backdrop name="$(parent)BarBG">
+                    <Dimensions x="120" y="12" />
+                    <Anchor point="LEFT" offsetX="275" offsetY="0" />
+                    <Center r="0.15" g="0.15" b="0.15" a="0.8" />
+                    <Edge edgeSize="1" />
+                </Backdrop>
+                <!-- Progress bar fill -->
+                <Backdrop name="$(parent)BarFill">
+                    <Dimensions x="0" y="12" />
+                    <Anchor point="LEFT" relativeTo="$(parent)BarBG" relativePoint="LEFT" />
+                    <Center r="0" g="0.6" b="0" a="0.9" />
+                </Backdrop>
+            </Controls>
+        </Control>
+    </Controls>
+</GuiXml>

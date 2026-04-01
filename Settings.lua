@@ -94,6 +94,52 @@ function SmartGear.InitSettings()
             default = SmartGear.defaults.pvpMode,
             width = "full",
         },
+        -- Target Build header
+        {
+            type = "header",
+            name = lang == "ru" and "Целевая сборка" or "Target Build",
+            width = "full",
+        },
+        -- Open build browser button
+        {
+            type = "button",
+            name = lang == "ru" and "Открыть браузер сборок" or "Open Build Browser",
+            tooltip = lang == "ru"
+                and "Открыть окно выбора целевой сборки (/smartgear builds)"
+                or "Open the target build selection window (/smartgear builds)",
+            func = function()
+                SmartGear.ToggleBuildBrowser()
+            end,
+            width = "full",
+        },
+        -- Target build mode
+        {
+            type = "dropdown",
+            name = lang == "ru" and "Режим целевой сборки" or "Target Build Mode",
+            tooltip = lang == "ru"
+                and "blend = смешанный (рекомендуется), target = только целевой, off = выключен"
+                or "blend = mixed (recommended), target = target only, off = disabled",
+            choices = { "blend", "target", "off" },
+            getFunc = function() return sv.targetBuildMode or "blend" end,
+            setFunc = function(value) sv.targetBuildMode = value end,
+            default = SmartGear.defaults.targetBuildMode,
+            width = "full",
+        },
+        -- Target build weight slider
+        {
+            type = "slider",
+            name = lang == "ru" and "Вес целевой сборки" or "Target Build Weight",
+            tooltip = lang == "ru"
+                and "Насколько сильно целевая сборка влияет на рейтинг (0.0 = не влияет, 1.0 = полностью)"
+                or "How strongly the target build affects scoring (0.0 = no effect, 1.0 = full)",
+            min = 0,
+            max = 100,
+            step = 5,
+            getFunc = function() return math.floor((sv.targetBuildWeight or 0.6) * 100) end,
+            setFunc = function(value) sv.targetBuildWeight = value / 100 end,
+            default = 60,
+            width = "full",
+        },
         -- Display header
         {
             type = "header",
