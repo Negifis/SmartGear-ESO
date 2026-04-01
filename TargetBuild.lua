@@ -52,10 +52,12 @@ local function CreateBuildRow(parent, index)
     row:SetAnchor(TOPLEFT, parent, TOPLEFT, 0, (index - 1) * ROW_HEIGHT)
     row:SetMouseEnabled(true)
 
-    local bg = WINDOW_MANAGER:CreateControl(nil, row, CT_TEXTURE)
-    bg:SetAnchorFill(row)
-    bg:SetTexture("EsoUI/Art/Miscellaneous/single_pixel.dds")
-    bg:SetColor(0.08, 0.08, 0.08, 0.6)
+    bgCounter = bgCounter + 1
+    local bg = WINDOW_MANAGER:CreateControl("SmartGearBG" .. bgCounter, row, CT_BACKDROP)
+    bg:SetAnchorFill()
+    bg:SetCenterColor(0.08, 0.08, 0.08, 0.6)
+    bg:SetEdgeColor(0, 0, 0, 0)
+    bg:SetEdgeTexture("", 1, 1, 0, 0)
     row._bg = bg
 
     -- Role dot
@@ -89,14 +91,14 @@ local function CreateBuildRow(parent, index)
 
     -- Hover
     row:SetHandler("OnMouseEnter", function()
-        bg:SetColor(0.12, 0.18, 0.12, 0.8)
+        bg:SetCenterColor(0.12, 0.18, 0.12, 0.8)
     end)
     row:SetHandler("OnMouseExit", function()
         local sel = selectedBuildId == row._buildId
         if sel then
-            bg:SetColor(0.1, 0.2, 0.1, 0.8)
+            bg:SetCenterColor(0.1, 0.2, 0.1, 0.8)
         else
-            bg:SetColor(0.08, 0.08, 0.08, 0.6)
+            bg:SetCenterColor(0.08, 0.08, 0.08, 0.6)
         end
     end)
 
@@ -189,16 +191,16 @@ end
 ----------------------------------------------------------------------
 -- Init UI
 ----------------------------------------------------------------------
-local PIXEL = "EsoUI/Art/Miscellaneous/single_pixel.dds"
 local bgCounter = 0
 
 local function MakeBG(parent, r, g, b, a)
     bgCounter = bgCounter + 1
-    local tex = WINDOW_MANAGER:CreateControl("SmartGearBG" .. bgCounter, parent, CT_TEXTURE)
-    tex:SetTexture(PIXEL)
-    tex:SetAnchorFill(parent)
-    tex:SetColor(r, g, b, a)
-    return tex
+    local bg = WINDOW_MANAGER:CreateControl("SmartGearBG" .. bgCounter, parent, CT_BACKDROP)
+    bg:SetAnchorFill()
+    bg:SetCenterColor(r, g, b, a)
+    bg:SetEdgeColor(0, 0, 0, 0)
+    bg:SetEdgeTexture("", 1, 1, 0, 0)
+    return bg
 end
 
 local function InitUI()
@@ -390,9 +392,9 @@ function SmartGear.RenderBuildRows()
             end
 
             if isSelected then
-                row._bg:SetColor(0.1, 0.2, 0.1, 0.8)
+                row._bg:SetCenterColor(0.1, 0.2, 0.1, 0.8)
             else
-                row._bg:SetColor(0.08, 0.08, 0.08, 0.6)
+                row._bg:SetCenterColor(0.08, 0.08, 0.08, 0.6)
             end
 
             row._buildId = data.id
