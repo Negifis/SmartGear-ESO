@@ -554,8 +554,8 @@ function SmartGear.ShowBuildDetails(buildId)
                     [WEAPONTYPE_BOW] = L("Bow","Лук"),
                     [WEAPONTYPE_FIRE_STAFF] = L("Fire","Огонь"),
                     [WEAPONTYPE_LIGHTNING_STAFF] = L("Light","Молния"),
-                    [WEAPONTYPE_ICE_STAFF] = L("Ice","Лёд"),
-                    [WEAPONTYPE_RESTORATION_STAFF] = L("Resto","Восст"),
+                    [WEAPONTYPE_FROST_STAFF] = L("Ice","Лёд"),
+                    [WEAPONTYPE_HEALING_STAFF] = L("Resto","Восст"),
                     [WEAPONTYPE_SHIELD] = L("Shld","Щит"),
                 }
                 table.insert(specParts, WT_NAMES[spec.weaponType] or "?")
