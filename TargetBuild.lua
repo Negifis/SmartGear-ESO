@@ -196,7 +196,6 @@ local function MakeBG(parent, r, g, b, a)
     tex:SetTexture(PIXEL)
     tex:SetAnchorFill(parent)
     tex:SetColor(r, g, b, a)
-    tex:SetDrawLayer(DL_BACKGROUND)
     return tex
 end
 
