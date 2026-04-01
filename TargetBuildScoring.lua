@@ -95,15 +95,22 @@ function SmartGear.EvaluateSlotVsBuild(wornSlot, build)
         details.traitMatch = true
     end
 
-    -- === WEIGHT (10 pts) ===
-    if spec.weight then
+    -- === WEIGHT / WEAPON TYPE (10 pts) ===
+    if spec.weaponType then
+        -- Weapon slot: check weapon type (Bow, Fire Staff, Dagger, etc.)
+        local itemWeaponType = GetItemLinkWeaponType(itemLink)
+        if itemWeaponType and itemWeaponType == spec.weaponType then
+            score = score + 10
+            details.weightMatch = true  -- reuse field for "type match"
+        end
+    elseif spec.weight then
+        -- Armor slot: check weight
         local itemWeight = GetItemLinkArmorType(itemLink)
         if itemWeight and itemWeight == spec.weight then
             score = score + 10
             details.weightMatch = true
         end
     else
-        -- Not armor or build doesn't specify weight = auto-pass
         score = score + 10
         details.weightMatch = true
     end
@@ -184,28 +191,48 @@ function SmartGear.ComputeTargetBuildScore(result, build)
     }
 
     -- === WEAPON TYPE COMPATIBILITY CHECK ===
-    -- If the build expects DW (has both main+off hand) but item is 2H → big penalty
-    -- If the build expects 2H (has main but no off hand) but item is 1H → penalty
+    -- Check equip type (1H vs 2H) and specific weapon type (Bow, Fire Staff, etc.)
     local itemEquipType = result.equipType
-    if itemEquipType == EQUIP_TYPE_TWO_HAND or itemEquipType == EQUIP_TYPE_ONE_HAND then
-        local buildHasMainBar = build.slots[EQUIP_SLOT_MAIN_HAND] ~= nil
+    local itemWeaponType = result.itemLink and GetItemLinkWeaponType(result.itemLink) or nil
+
+    if itemEquipType == EQUIP_TYPE_TWO_HAND or itemEquipType == EQUIP_TYPE_ONE_HAND
+       or itemEquipType == EQUIP_TYPE_OFF_HAND then
+
         local buildHasOffBar = build.slots[EQUIP_SLOT_OFF_HAND] ~= nil
-        local buildHasBackupMain = build.slots[EQUIP_SLOT_BACKUP_MAIN] ~= nil
         local buildHasBackupOff = build.slots[EQUIP_SLOT_BACKUP_OFF] ~= nil
 
-        -- Front bar: build has MH+OH = DW expected
-        if buildHasMainBar and buildHasOffBar and itemEquipType == EQUIP_TYPE_TWO_HAND then
+        -- DW build but 2H item → hard penalty
+        if buildHasOffBar and itemEquipType == EQUIP_TYPE_TWO_HAND then
             match.wrongWeaponType = true
-            return -20, match  -- 2H weapon but build wants DW
+            return -20, match
         end
-        -- Front bar: build has MH but no OH = 2H expected
-        if buildHasMainBar and not buildHasOffBar and itemEquipType == EQUIP_TYPE_ONE_HAND then
-            -- 1H could go to DW off-hand or be mismatched — mild penalty only
-            -- Don't hard-block because build might use 1H+Shield on some bar
-        end
-        -- Back bar: build has backup main but no backup off = 2H backbar
-        if buildHasBackupMain and not buildHasBackupOff and itemEquipType == EQUIP_TYPE_ONE_HAND then
-            -- Could be for front bar, not necessarily wrong
+
+        -- Check specific weapon type against what the build specifies
+        if itemWeaponType then
+            local weaponMatch = false
+            for _, slot in pairs({EQUIP_SLOT_MAIN_HAND, EQUIP_SLOT_OFF_HAND,
+                                   EQUIP_SLOT_BACKUP_MAIN, EQUIP_SLOT_BACKUP_OFF}) do
+                local spec = build.slots[slot]
+                if spec and spec.weaponType then
+                    if spec.weaponType == itemWeaponType then
+                        weaponMatch = true
+                        break
+                    end
+                end
+            end
+            -- If build specifies weapon types and this item doesn't match any → penalty
+            local buildHasWeaponTypes = false
+            for _, slot in pairs({EQUIP_SLOT_MAIN_HAND, EQUIP_SLOT_OFF_HAND,
+                                   EQUIP_SLOT_BACKUP_MAIN, EQUIP_SLOT_BACKUP_OFF}) do
+                if build.slots[slot] and build.slots[slot].weaponType then
+                    buildHasWeaponTypes = true
+                    break
+                end
+            end
+            if buildHasWeaponTypes and not weaponMatch then
+                match.wrongWeaponType = true
+                return -15, match
+            end
         end
     end
 

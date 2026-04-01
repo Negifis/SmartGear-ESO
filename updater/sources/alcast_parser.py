@@ -465,6 +465,50 @@ WEIGHT_MAP = {
     "light": "ARMORTYPE_LIGHT", "medium": "ARMORTYPE_MEDIUM", "heavy": "ARMORTYPE_HEAVY",
 }
 
+# Weapon type from Alcast table -> ESO WEAPONTYPE constant
+WEAPON_TYPE_MAP = {
+    "dagger":          "WEAPONTYPE_DAGGER",
+    "sword":           "WEAPONTYPE_SWORD",
+    "axe":             "WEAPONTYPE_AXE",
+    "mace":            "WEAPONTYPE_HAMMER",
+    "2h sword":        "WEAPONTYPE_TWO_HANDED_SWORD",
+    "2h axe":          "WEAPONTYPE_TWO_HANDED_AXE",
+    "2h hammer":       "WEAPONTYPE_TWO_HANDED_HAMMER",
+    "2h maul":         "WEAPONTYPE_TWO_HANDED_HAMMER",
+    "2h":              "WEAPONTYPE_TWO_HANDED_SWORD",
+    "bow":             "WEAPONTYPE_BOW",
+    "fire staff":      "WEAPONTYPE_FIRE_STAFF",
+    "fire":            "WEAPONTYPE_FIRE_STAFF",
+    "inferno staff":   "WEAPONTYPE_FIRE_STAFF",
+    "inferno":         "WEAPONTYPE_FIRE_STAFF",
+    "lightning staff":  "WEAPONTYPE_LIGHTNING_STAFF",
+    "lightning":       "WEAPONTYPE_LIGHTNING_STAFF",
+    "shock staff":     "WEAPONTYPE_LIGHTNING_STAFF",
+    "shock":           "WEAPONTYPE_LIGHTNING_STAFF",
+    "frost staff":     "WEAPONTYPE_ICE_STAFF",
+    "frost":           "WEAPONTYPE_ICE_STAFF",
+    "ice staff":       "WEAPONTYPE_ICE_STAFF",
+    "resto staff":     "WEAPONTYPE_RESTORATION_STAFF",
+    "resto":           "WEAPONTYPE_RESTORATION_STAFF",
+    "restoration staff": "WEAPONTYPE_RESTORATION_STAFF",
+    "healing staff":   "WEAPONTYPE_RESTORATION_STAFF",
+    "shield":          "WEAPONTYPE_SHIELD",
+    "1h weap":         None,  # generic 1H, no specific type
+    "1h-weap":         None,
+}
+
+
+def _map_weapon_type(text):
+    """Map weapon type text to ESO constant."""
+    lower = text.lower().strip()
+    if lower in WEAPON_TYPE_MAP:
+        return WEAPON_TYPE_MAP[lower]
+    # Partial match
+    for key, val in WEAPON_TYPE_MAP.items():
+        if key in lower:
+            return val
+    return None
+
 WEAPON_SLOTS = {"EQUIP_SLOT_MAIN_HAND", "EQUIP_SLOT_OFF_HAND", "EQUIP_SLOT_BACKUP_MAIN", "EQUIP_SLOT_BACKUP_OFF"}
 JEWELRY_SLOTS = {"EQUIP_SLOT_NECK", "EQUIP_SLOT_RING1", "EQUIP_SLOT_RING2"}
 
@@ -578,13 +622,16 @@ def _extract_builds_from_page(html, url, title, role):
             raw_col4 = cells[4].get_text(strip=True) if len(cells) > 4 else ""
 
             weight_keywords = {"light", "medium", "heavy"}
+            weapon_type_text = ""
             trait_text = ""
             weight_text = ""
             for col in [raw_col2, raw_col3, raw_col4]:
                 col_lower = col.lower().strip()
                 if col_lower in weight_keywords:
                     weight_text = col
-                elif col_lower and col_lower not in {"", "jewelry", "weapon", "shield"}:
+                elif _map_weapon_type(col_lower):
+                    weapon_type_text = col
+                elif col_lower and col_lower not in {"", "jewelry", "weapon"}:
                     if not trait_text:
                         trait_text = col
 
@@ -601,6 +648,7 @@ def _extract_builds_from_page(html, url, title, role):
             slot_entries.append({
                 "name": name, "slot": slot_name,
                 "trait": trait_text, "weight": weight_text,
+                "weaponType": weapon_type_text,
             })
 
         # Build slot mapping
@@ -616,12 +664,15 @@ def _extract_builds_from_page(html, url, title, role):
 
             trait_const = _map_trait(entry.get("trait", ""), slot_const)
             weight_const = _map_weight(entry.get("weight", ""))
+            weapon_const = _map_weapon_type(entry.get("weaponType", ""))
 
             slot_data = {"set": entry["name"]}
             if trait_const:
                 slot_data["trait"] = trait_const
             if weight_const:
                 slot_data["weight"] = weight_const
+            if weapon_const:
+                slot_data["weaponType"] = weapon_const
             slots[slot_const] = slot_data
 
         if len(slots) < 4:

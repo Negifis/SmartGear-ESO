@@ -394,6 +394,8 @@ def generate_build_database(builds, output_path):
                 parts.append(f'trait = {slot_data["trait"]}')
             if slot_data.get("weight"):
                 parts.append(f'weight = {slot_data["weight"]}')
+            if slot_data.get("weaponType"):
+                parts.append(f'weaponType = {slot_data["weaponType"]}')
             lines.append(f'        [{slot_const}] = {{ {", ".join(parts)} }},')
 
         lines.append(f'    }},')
