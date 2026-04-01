@@ -342,6 +342,15 @@ local function BuildTooltipLines(eval)
             end
         end
 
+        -- Wrong weapon type warning
+        if tbm.wrongWeaponType then
+            table.insert(lines, {
+                text = COLOR_RED .. "  (x) "
+                    .. (lang == "ru" and "Неподходящий тип оружия для билда!" or "Wrong weapon type for build!")
+                    .. COLOR_RESET,
+            })
+        end
+
         -- Target score
         if eval.targetBuildScore and eval.targetBuildScore ~= 0 then
             local tbColor = eval.targetBuildScore > 0 and COLOR_GREEN or COLOR_RED

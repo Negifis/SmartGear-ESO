@@ -183,6 +183,32 @@ function SmartGear.ComputeTargetBuildScore(result, build)
         slotScore = 0,        -- how well it matches best target slot
     }
 
+    -- === WEAPON TYPE COMPATIBILITY CHECK ===
+    -- If the build expects DW (has both main+off hand) but item is 2H → big penalty
+    -- If the build expects 2H (has main but no off hand) but item is 1H → penalty
+    local itemEquipType = result.equipType
+    if itemEquipType == EQUIP_TYPE_TWO_HAND or itemEquipType == EQUIP_TYPE_ONE_HAND then
+        local buildHasMainBar = build.slots[EQUIP_SLOT_MAIN_HAND] ~= nil
+        local buildHasOffBar = build.slots[EQUIP_SLOT_OFF_HAND] ~= nil
+        local buildHasBackupMain = build.slots[EQUIP_SLOT_BACKUP_MAIN] ~= nil
+        local buildHasBackupOff = build.slots[EQUIP_SLOT_BACKUP_OFF] ~= nil
+
+        -- Front bar: build has MH+OH = DW expected
+        if buildHasMainBar and buildHasOffBar and itemEquipType == EQUIP_TYPE_TWO_HAND then
+            match.wrongWeaponType = true
+            return -20, match  -- 2H weapon but build wants DW
+        end
+        -- Front bar: build has MH but no OH = 2H expected
+        if buildHasMainBar and not buildHasOffBar and itemEquipType == EQUIP_TYPE_ONE_HAND then
+            -- 1H could go to DW off-hand or be mismatched — mild penalty only
+            -- Don't hard-block because build might use 1H+Shield on some bar
+        end
+        -- Back bar: build has backup main but no backup off = 2H backbar
+        if buildHasBackupMain and not buildHasBackupOff and itemEquipType == EQUIP_TYPE_ONE_HAND then
+            -- Could be for front bar, not necessarily wrong
+        end
+    end
+
     local itemSetName = result.setName
     if not itemSetName then
         match.statSynergy = -3
