@@ -191,47 +191,57 @@ function SmartGear.ComputeTargetBuildScore(result, build)
     }
 
     -- === WEAPON TYPE COMPATIBILITY CHECK ===
-    -- Check equip type (1H vs 2H) and specific weapon type (Bow, Fire Staff, etc.)
     local itemEquipType = result.equipType
     local itemWeaponType = result.itemLink and GetItemLinkWeaponType(result.itemLink) or nil
 
     if itemEquipType == EQUIP_TYPE_TWO_HAND or itemEquipType == EQUIP_TYPE_ONE_HAND
        or itemEquipType == EQUIP_TYPE_OFF_HAND then
 
-        local buildHasOffBar = build.slots[EQUIP_SLOT_OFF_HAND] ~= nil
-        local buildHasBackupOff = build.slots[EQUIP_SLOT_BACKUP_OFF] ~= nil
+        local weaponSlots = {EQUIP_SLOT_MAIN_HAND, EQUIP_SLOT_OFF_HAND,
+                             EQUIP_SLOT_BACKUP_MAIN, EQUIP_SLOT_BACKUP_OFF}
 
-        -- DW build but 2H item → hard penalty
-        if buildHasOffBar and itemEquipType == EQUIP_TYPE_TWO_HAND then
-            match.wrongWeaponType = true
-            return -20, match
-        end
-
-        -- Check specific weapon type against what the build specifies
+        -- FIRST: check if item's specific weapon type matches ANY weapon slot
+        -- (e.g., Bow matches backup main even if front bar is DW)
         if itemWeaponType then
-            local weaponMatch = false
-            for _, slot in pairs({EQUIP_SLOT_MAIN_HAND, EQUIP_SLOT_OFF_HAND,
-                                   EQUIP_SLOT_BACKUP_MAIN, EQUIP_SLOT_BACKUP_OFF}) do
+            local weaponTypeMatch = false
+            local buildHasWeaponTypes = false
+            for _, slot in pairs(weaponSlots) do
                 local spec = build.slots[slot]
                 if spec and spec.weaponType then
+                    buildHasWeaponTypes = true
                     if spec.weaponType == itemWeaponType then
-                        weaponMatch = true
+                        weaponTypeMatch = true
                         break
                     end
                 end
             end
-            -- If build specifies weapon types and this item doesn't match any → penalty
-            local buildHasWeaponTypes = false
-            for _, slot in pairs({EQUIP_SLOT_MAIN_HAND, EQUIP_SLOT_OFF_HAND,
-                                   EQUIP_SLOT_BACKUP_MAIN, EQUIP_SLOT_BACKUP_OFF}) do
-                if build.slots[slot] and build.slots[slot].weaponType then
-                    buildHasWeaponTypes = true
-                    break
+            if buildHasWeaponTypes then
+                if weaponTypeMatch then
+                    -- Weapon type matches a slot in the build → good, skip DW/2H check
+                    match.correctWeaponType = true
+                else
+                    -- Doesn't match any weapon slot → penalty
+                    match.wrongWeaponType = true
+                    return -15, match
                 end
             end
-            if buildHasWeaponTypes and not weaponMatch then
+        end
+
+        -- SECOND: DW vs 2H check (only if no specific weaponType match found)
+        if not match.correctWeaponType then
+            -- Front bar: has main+off = DW, but item is 2H
+            local frontIsDW = build.slots[EQUIP_SLOT_MAIN_HAND] and build.slots[EQUIP_SLOT_OFF_HAND]
+            -- Back bar: has backup main but no backup off = 2H backbar
+            local backIs2H = build.slots[EQUIP_SLOT_BACKUP_MAIN] and not build.slots[EQUIP_SLOT_BACKUP_OFF]
+
+            if itemEquipType == EQUIP_TYPE_TWO_HAND and frontIsDW and not backIs2H then
+                -- 2H item but BOTH bars are DW → no place for it
                 match.wrongWeaponType = true
-                return -15, match
+                return -20, match
+            end
+            if itemEquipType == EQUIP_TYPE_ONE_HAND and not frontIsDW and backIs2H then
+                -- 1H item but both bars are 2H → no place for it
+                -- (rare case, don't hard-block)
             end
         end
     end
