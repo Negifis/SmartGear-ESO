@@ -619,6 +619,18 @@ def _extract_builds_from_page(html, url, title, role):
         if len(slots) < 4:
             continue
 
+        # Auto-fill missing off-hand slots for DW builds
+        # Alcast often shows only "Weapon 1" without separate off-hand
+        if "EQUIP_SLOT_MAIN_HAND" in slots and "EQUIP_SLOT_OFF_HAND" not in slots:
+            mh = slots["EQUIP_SLOT_MAIN_HAND"]
+            slots["EQUIP_SLOT_OFF_HAND"] = {"set": mh["set"]}
+            if mh.get("trait"):
+                # Off-hand typically gets a different trait (Precise if main is Nirnhoned)
+                if mh["trait"] == "ITEM_TRAIT_TYPE_WEAPON_NIRNHONED":
+                    slots["EQUIP_SLOT_OFF_HAND"]["trait"] = "ITEM_TRAIT_TYPE_WEAPON_PRECISE"
+                else:
+                    slots["EQUIP_SLOT_OFF_HAND"]["trait"] = mh.get("trait")
+
         seen_contexts.add(table_ctx)
 
         # Build name: append context if not group

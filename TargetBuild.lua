@@ -26,7 +26,7 @@ local filterMyClass = true   -- true = show only current class builds
 local ROW_HEIGHT = 30
 local DETAIL_ROW_HEIGHT = 26
 local MAX_VISIBLE_ROWS = 14
-local MAX_DETAIL_ROWS = 12
+local MAX_DETAIL_ROWS = 14
 
 -- UI refs
 local browser, leftPanel, rightPanel, noBuildLabel
@@ -486,73 +486,74 @@ function SmartGear.ShowBuildDetails(buildId)
     local ctxName = ctxInfo and (lang == "ru" and ctxInfo.nameRu or ctxInfo.name) or (build.context or "?")
     roleCtxLabel:SetText(roleName .. " | " .. ctxName)
 
-    -- Compute set progress
-    local sets = {}
-    local setOrder = {}
-    if build.slots then
-        for slot, spec in pairs(build.slots) do
-            if spec and spec.set then
-                if not sets[spec.set] then
-                    sets[spec.set] = { needed = 0, equipped = 0 }
-                    table.insert(setOrder, spec.set)
-                end
-                sets[spec.set].needed = sets[spec.set].needed + 1
-            end
-        end
-    end
+    -- Per-slot progress evaluation
+    local overall, slotResults = SmartGear.EvaluateBuildProgress(build)
 
-    local totalNeeded = 0
-    local totalEquipped = 0
-    for setName, info in pairs(sets) do
-        info.equipped = SmartGear.CountEquippedFromSet(setName)
-        totalNeeded = totalNeeded + info.needed
-        totalEquipped = totalEquipped + math.min(info.equipped, info.needed)
-    end
-
-    local pct = totalNeeded > 0 and math.floor(totalEquipped / totalNeeded * 100) or 0
+    -- Progress label with overall %
     progressLabel:SetText(
         (lang == "ru" and "Прогресс: " or "Progress: ")
-        .. totalEquipped .. "/" .. totalNeeded .. " (" .. pct .. "%)"
+        .. overall .. "%"
     )
-    if pct >= 100 then progressLabel:SetColor(0, 1, 0, 1)
-    elseif pct >= 50 then progressLabel:SetColor(1, 1, 0, 1)
+    if overall >= 80 then progressLabel:SetColor(0, 1, 0, 1)
+    elseif overall >= 50 then progressLabel:SetColor(1, 1, 0, 1)
     else progressLabel:SetColor(1, 0.5, 0, 1) end
 
-    -- Sort: incomplete first
-    table.sort(setOrder, function(a, b)
-        local aC = sets[a].equipped >= sets[a].needed
-        local bC = sets[b].equipped >= sets[b].needed
-        if aC ~= bC then return not aC end
-        return a < b
-    end)
+    -- Slot name lookup
+    local SLOT_NAMES_SHORT = {
+        [EQUIP_SLOT_HEAD] = "Head", [EQUIP_SLOT_SHOULDERS] = "Shldr",
+        [EQUIP_SLOT_CHEST] = "Chest", [EQUIP_SLOT_WAIST] = "Waist",
+        [EQUIP_SLOT_LEGS] = "Legs", [EQUIP_SLOT_FEET] = "Feet",
+        [EQUIP_SLOT_HAND] = "Hands", [EQUIP_SLOT_NECK] = "Neck",
+        [EQUIP_SLOT_RING1] = "Ring1", [EQUIP_SLOT_RING2] = "Ring2",
+        [EQUIP_SLOT_MAIN_HAND] = "MH", [EQUIP_SLOT_OFF_HAND] = "OH",
+        [EQUIP_SLOT_BACKUP_MAIN] = "BkMH", [EQUIP_SLOT_BACKUP_OFF] = "BkOH",
+    }
 
-    -- Fill detail rows
+    -- Fill detail rows with per-slot data
     for i = 1, MAX_DETAIL_ROWS do
         local row = detailRows[i]
         if not row then break end
-        if i <= #setOrder then
-            local setName = setOrder[i]
-            local info = sets[setName]
-            row._nameLabel:SetText(setName)
-            row._countLabel:SetText(info.equipped .. "/" .. info.needed)
 
-            if info.equipped >= info.needed then
-                row._nameLabel:SetColor(0, 1, 0, 1)
-                row._countLabel:SetColor(0, 1, 0, 1)
-            elseif info.equipped > 0 then
-                row._nameLabel:SetColor(1, 1, 0, 1)
-                row._countLabel:SetColor(1, 1, 0, 1)
+        if i <= #slotResults then
+            local sr = slotResults[i]
+            local d_info = sr.details
+            local slotName = SLOT_NAMES_SHORT[sr.slot] or "?"
+            local targetSet = d_info and d_info.targetSet or "?"
+
+            -- Name: "Slot: SetName"
+            row._nameLabel:SetText(slotName .. ": " .. targetSet)
+
+            -- Score as text
+            if d_info and d_info.empty then
+                row._countLabel:SetText("EMPTY")
+                row._countLabel:SetColor(1, 0, 0, 1)
             else
-                row._nameLabel:SetColor(0.6, 0.6, 0.6, 1)
-                row._countLabel:SetColor(0.6, 0.6, 0.6, 1)
+                row._countLabel:SetText(sr.score .. "%")
+                if sr.score >= 80 then
+                    row._countLabel:SetColor(0, 1, 0, 1)
+                elseif sr.score >= 50 then
+                    row._countLabel:SetColor(1, 1, 0, 1)
+                else
+                    row._countLabel:SetColor(1, 0.5, 0, 1)
+                end
             end
 
+            -- Name color: set match
+            if d_info and d_info.setMatch then
+                row._nameLabel:SetColor(0, 1, 0, 1)
+            elseif d_info and d_info.empty then
+                row._nameLabel:SetColor(1, 0, 0, 1)
+            else
+                row._nameLabel:SetColor(0.8, 0.5, 0.2, 1)  -- orange = wrong set
+            end
+
+            -- Progress bar
             local barWidth = row._barBg:GetWidth()
-            local ratio = info.needed > 0 and (math.min(info.equipped, info.needed) / info.needed) or 0
+            local ratio = sr.score / 100
             row._barFill:SetWidth(math.max(1, barWidth * ratio))
-            if ratio >= 1 then row._barFill:SetCenterColor(0, 0.65, 0, 0.9)
-            elseif ratio > 0 then row._barFill:SetCenterColor(0.65, 0.65, 0, 0.9)
-            else row._barFill:SetCenterColor(0.25, 0, 0, 0.5) end
+            if ratio >= 0.8 then row._barFill:SetCenterColor(0, 0.65, 0, 0.9)
+            elseif ratio >= 0.5 then row._barFill:SetCenterColor(0.65, 0.65, 0, 0.9)
+            else row._barFill:SetCenterColor(0.65, 0.3, 0, 0.8) end
 
             row:SetHidden(false)
         else
