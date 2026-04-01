@@ -125,7 +125,7 @@ local function CreateDetailRow(parent, index)
     name:SetFont("ZoFontGame")
     name:SetColor(0.8, 0.8, 0.8, 1)
     name:SetAnchor(LEFT, row, LEFT, 0, 0)
-    name:SetDimensions(190, DETAIL_ROW_HEIGHT)
+    name:SetDimensions(280, DETAIL_ROW_HEIGHT)
     name:SetHorizontalAlignment(TEXT_ALIGN_LEFT)
     name:SetVerticalAlignment(TEXT_ALIGN_CENTER)
     row._nameLabel = name
@@ -133,15 +133,15 @@ local function CreateDetailRow(parent, index)
     local cnt = WINDOW_MANAGER:CreateControl(nil, row, CT_LABEL)
     cnt:SetFont("ZoFontGameBold")
     cnt:SetColor(0, 1, 0, 1)
-    cnt:SetAnchor(LEFT, row, LEFT, 195, 0)
-    cnt:SetDimensions(45, DETAIL_ROW_HEIGHT)
+    cnt:SetAnchor(LEFT, row, LEFT, 285, 0)
+    cnt:SetDimensions(40, DETAIL_ROW_HEIGHT)
     cnt:SetHorizontalAlignment(TEXT_ALIGN_LEFT)
     cnt:SetVerticalAlignment(TEXT_ALIGN_CENTER)
     row._countLabel = cnt
 
     local barBg = WINDOW_MANAGER:CreateControl(nil, row, CT_BACKDROP)
-    barBg:SetDimensions(140, 10)
-    barBg:SetAnchor(LEFT, row, LEFT, 248, 0)
+    barBg:SetDimensions(70, 10)
+    barBg:SetAnchor(LEFT, row, LEFT, 330, 0)
     barBg:SetCenterColor(0.12, 0.12, 0.12, 0.8)
     barBg:SetEdgeColor(0.2, 0.2, 0.2, 0.5)
     barBg:SetEdgeTexture("", 1, 1, 1)
@@ -538,8 +538,47 @@ function SmartGear.ShowBuildDetails(buildId)
             local slotName = SLOT_NAMES_SHORT[sr.slot] or "?"
             local targetSet = d_info and d_info.targetSet or "?"
 
-            -- Name: "Slot: SetName"
-            row._nameLabel:SetText(slotName .. ": " .. targetSet)
+            -- Build spec details for this slot
+            local spec = build and build.slots and build.slots[sr.slot]
+            local specParts = {}
+            -- Weapon type short name
+            if spec and spec.weaponType then
+                local WT_NAMES = {
+                    [WEAPONTYPE_DAGGER] = L("Dag","Кинж"),
+                    [WEAPONTYPE_SWORD] = L("Swd","Меч"),
+                    [WEAPONTYPE_AXE] = L("Axe","Топор"),
+                    [WEAPONTYPE_HAMMER] = L("Mace","Бул"),
+                    [WEAPONTYPE_TWO_HANDED_SWORD] = L("2HSwd","2Р Меч"),
+                    [WEAPONTYPE_TWO_HANDED_AXE] = L("2HAxe","2Р Топор"),
+                    [WEAPONTYPE_TWO_HANDED_HAMMER] = L("2HMaul","2Р Бул"),
+                    [WEAPONTYPE_BOW] = L("Bow","Лук"),
+                    [WEAPONTYPE_FIRE_STAFF] = L("Fire","Огонь"),
+                    [WEAPONTYPE_LIGHTNING_STAFF] = L("Light","Молния"),
+                    [WEAPONTYPE_ICE_STAFF] = L("Ice","Лёд"),
+                    [WEAPONTYPE_RESTORATION_STAFF] = L("Resto","Восст"),
+                    [WEAPONTYPE_SHIELD] = L("Shld","Щит"),
+                }
+                table.insert(specParts, WT_NAMES[spec.weaponType] or "?")
+            end
+            -- Trait short name
+            if spec and spec.trait and SmartGear.TraitNames then
+                local tName = SmartGear.TraitNames[spec.trait]
+                if tName then table.insert(specParts, tName) end
+            end
+            -- Weight short name
+            if spec and spec.weight then
+                local W_SHORT = {
+                    [ARMORTYPE_LIGHT] = L("Lt","Лг"),
+                    [ARMORTYPE_MEDIUM] = L("Md","Ср"),
+                    [ARMORTYPE_HEAVY] = L("Hv","Тж"),
+                }
+                table.insert(specParts, W_SHORT[spec.weight] or "")
+            end
+
+            local specStr = #specParts > 0 and (" [" .. table.concat(specParts, ",") .. "]") or ""
+
+            -- Name: "Slot: SetName [WeaponType, Trait, Weight]"
+            row._nameLabel:SetText(slotName .. ": " .. targetSet .. specStr)
 
             -- Score as text
             if d_info and d_info.empty then
