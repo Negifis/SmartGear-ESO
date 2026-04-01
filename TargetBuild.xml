@@ -1,6 +1,5 @@
 <GuiXml>
     <Controls>
-        <!-- Build Browser main window -->
         <TopLevelControl name="SmartGearBuildBrowser" hidden="true" movable="true"
                          clampedToScreen="true" mouseEnabled="true"
                          layer="OVERLAY" level="50">
@@ -8,10 +7,9 @@
             <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" />
 
             <Controls>
-                <!-- Dark background -->
-                <Texture name="$(parent)BG">
+                <!-- Dark background (color set in Lua) -->
+                <Texture name="$(parent)BG" color="0a0a0aF0">
                     <AnchorFill />
-                    <Color r="0.04" g="0.04" b="0.04" a="0.94" />
                 </Texture>
 
                 <!-- Header bar -->
@@ -19,9 +17,8 @@
                     <Dimensions x="720" y="32" />
                     <Anchor point="TOPLEFT" />
                     <Controls>
-                        <Texture name="$(parent)BG">
+                        <Texture name="$(parent)BG" color="001F00F2">
                             <AnchorFill />
-                            <Color r="0" g="0.12" b="0" a="0.95" />
                         </Texture>
                         <Label name="$(parent)Title" font="ZoFontWinH4" color="00FF00"
                                horizontalAlignment="CENTER" verticalAlignment="CENTER"
@@ -48,13 +45,11 @@
                 <Control name="$(parent)LeftPanel">
                     <Dimensions x="260" y="510" />
                     <Anchor point="TOPLEFT" offsetX="8" offsetY="38" />
-
                     <Controls>
                         <!-- Search box background -->
-                        <Texture name="$(parent)SearchBG">
+                        <Texture name="$(parent)SearchBG" color="1A1A1AD9">
                             <Dimensions x="258" y="24" />
                             <Anchor point="TOPLEFT" offsetX="0" offsetY="0" />
-                            <Color r="0.1" g="0.1" b="0.1" a="0.85" />
                         </Texture>
 
                         <!-- Search input -->
@@ -72,7 +67,7 @@
                             <Anchor point="TOPLEFT" offsetX="0" offsetY="28" />
                         </Control>
 
-                        <!-- Build list container (scrollable via mouse wheel) -->
+                        <!-- Build list container -->
                         <Control name="$(parent)List" mouseEnabled="true">
                             <Dimensions x="258" y="450" />
                             <Anchor point="TOPLEFT" offsetX="0" offsetY="54" />
@@ -84,11 +79,9 @@
                 <Control name="$(parent)RightPanel" hidden="true">
                     <Dimensions x="430" y="510" />
                     <Anchor point="TOPRIGHT" offsetX="-8" offsetY="38" />
-
                     <Controls>
-                        <Texture name="$(parent)BG">
+                        <Texture name="$(parent)BG" color="0F0F0FB3">
                             <AnchorFill />
-                            <Color r="0.06" g="0.06" b="0.06" a="0.7" />
                         </Texture>
 
                         <Label name="$(parent)BuildName" font="ZoFontWinH3" color="FFFFFF"
@@ -110,7 +103,6 @@
                             <Anchor point="TOPLEFT" offsetX="10" offsetY="58" />
                         </Label>
 
-                        <!-- Set details container -->
                         <Control name="$(parent)SetList">
                             <Dimensions x="410" y="350" />
                             <Anchor point="TOPLEFT" offsetX="10" offsetY="84" />
@@ -121,9 +113,8 @@
                             <Dimensions x="150" y="32" />
                             <Anchor point="BOTTOMLEFT" offsetX="10" offsetY="-8" />
                             <Controls>
-                                <Texture name="$(parent)BG">
+                                <Texture name="$(parent)BG" color="005900E6">
                                     <AnchorFill />
-                                    <Color r="0" g="0.35" b="0" a="0.9" />
                                 </Texture>
                                 <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
                                        horizontalAlignment="CENTER" verticalAlignment="CENTER"
@@ -133,13 +124,13 @@
                             </Controls>
                         </Button>
 
+                        <!-- Deactivate button -->
                         <Button name="$(parent)DeactivateBtn" mouseEnabled="true" hidden="true">
                             <Dimensions x="150" y="32" />
                             <Anchor point="BOTTOMLEFT" offsetX="170" offsetY="-8" />
                             <Controls>
-                                <Texture name="$(parent)BG">
+                                <Texture name="$(parent)BG" color="591F00E6">
                                     <AnchorFill />
-                                    <Color r="0.35" g="0.12" b="0" a="0.9" />
                                 </Texture>
                                 <Label name="$(parent)Label" font="ZoFontGameBold" color="FFFFFF"
                                        horizontalAlignment="CENTER" verticalAlignment="CENTER"
@@ -151,10 +142,9 @@
                     </Controls>
                 </Control>
 
-                <!-- No build selected placeholder -->
+                <!-- No build selected -->
                 <Label name="$(parent)NoBuildLabel" font="ZoFontGame" color="555555"
-                       horizontalAlignment="CENTER" verticalAlignment="CENTER"
-                       text="">
+                       horizontalAlignment="CENTER" verticalAlignment="CENTER" text="">
                     <Dimensions x="430" y="510" />
                     <Anchor point="TOPRIGHT" offsetX="-8" offsetY="38" />
                 </Label>
