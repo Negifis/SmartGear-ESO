@@ -504,52 +504,60 @@ def _make_build_id(role, context, title):
 
 
 def _detect_table_context(heading_text):
-    """Detect context from a gear table heading."""
+    """Detect context from a gear table heading. Returns (context, label, skip)."""
     lower = heading_text.lower()
-    if any(kw in lower for kw in ["vateshran", "maelstrom", "solo", "infinite archive"]):
-        return "solo"
+
+    # Skip non-gear tables
+    if "skill" in lower and "gear" not in lower:
+        return None, None, True
+    if "outfit" in lower or "showcase" in lower or "style" in lower:
+        return None, None, True
+
+    # Detect specific contexts
+    if any(kw in lower for kw in ["vateshran", "maelstrom"]):
+        return "solo", "Arena", False
+    if "infinite archive" in lower:
+        return "solo", "Infinite Archive", False
+    if any(kw in lower for kw in ["solo"]):
+        return "solo", "Solo", False
     if any(kw in lower for kw in ["pvp", "battleground", "cyrodiil"]):
-        return "pvp"
+        return "pvp", "PvP", False
     if any(kw in lower for kw in ["trial", "raid"]):
-        return "trial"
+        return "trial", "Trial", False
     if "beginner" in lower:
-        return None  # skip beginner setups
-    if "skill" in lower:
-        return None  # skill tables, not gear
-    return "group"
+        return "group", "Beginner", False  # keep beginner builds too
+    if "setup 1" in lower:
+        return None, "Endgame", False  # context from page
+    if "setup 2" in lower:
+        return None, "Alternative", False
+    if "setup 3" in lower:
+        return None, "Advanced", False
+
+    return None, None, False  # context from page, no special label
 
 
 def _extract_builds_from_page(html, url, title, role):
-    """Extract MULTIPLE builds from a single page (group + solo + pvp setups)."""
+    """Extract MULTIPLE builds from a single page — one build per gear table."""
     soup = BeautifulSoup(html, "lxml")
     gear_tables = soup.select("div.table-2 table")
     if not gear_tables:
         return []
 
-    # Detect page-level context from URL and title
     page_context = _detect_context(url, title)
-
     builds = []
-    seen_contexts = set()
+    build_num = 0
 
     for table in gear_tables:
-        # Get table heading for context
         prev_heading = table.find_previous(["h2", "h3", "h4"])
         heading_text = prev_heading.get_text(strip=True) if prev_heading else ""
 
-        table_ctx = _detect_table_context(heading_text)
-
-        # For the main setup (Setup 1/2), use page-level context if detected
-        # e.g., page URL has "solo" → Setup 1 is a solo build, not group
-        if table_ctx == "group" and len(seen_contexts) == 0:
-            table_ctx = page_context  # first table inherits page context
-
-        if table_ctx is None:
-            continue  # skip beginner/skill tables
-
-        # Only take first table per context
-        if table_ctx in seen_contexts:
+        table_ctx, table_label, skip = _detect_table_context(heading_text)
+        if skip:
             continue
+
+        # Resolve context: table-specific > page-level > "group"
+        if not table_ctx:
+            table_ctx = page_context
 
         rows = table.select("tbody tr")
         if not rows:
@@ -631,22 +639,14 @@ def _extract_builds_from_page(html, url, title, role):
                 else:
                     slots["EQUIP_SLOT_OFF_HAND"]["trait"] = mh.get("trait")
 
-        seen_contexts.add(table_ctx)
+        build_num += 1
 
-        # Build name: append context if not group
+        # Build name: append label from table heading
         build_name = title
-        if table_ctx == "solo":
-            # Use heading for more descriptive name
-            if "vateshran" in heading_text.lower():
-                build_name = title + " [Vateshran]"
-            elif "maelstrom" in heading_text.lower():
-                build_name = title + " [Maelstrom]"
-            elif "infinite" in heading_text.lower():
-                build_name = title + " [Infinite Archive]"
-            else:
-                build_name = title + " [Solo]"
-        elif table_ctx == "pvp":
-            build_name = title + " [PvP]"
+        if table_label:
+            build_name = title + " [" + table_label + "]"
+        elif build_num > 1:
+            build_name = title + " [Setup " + str(build_num) + "]"
 
         builds.append({
             "id": _make_build_id(role, table_ctx, build_name),
